@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # icu-cross-build.sh: Cross-compile ICU4C as static library for multiple platforms
-# Platforms: linux-x86_64, windows-x86_64 (MinGW), wasm32 (Emscripten)
+# Platforms: linux-x86_64-gcc-13, windows-x86_64 (MinGW), wasm32 (Emscripten)
 
 set -e
 
@@ -54,6 +54,9 @@ if [[ $IGNORE_COMPILER_VERSION -eq 0 ]]; then
     exit_with_error "GCC version $REQUIRED_GCC_VERSION.x is required, but found $ACTUAL_GCC_VERSION. Use --ignore-compiler-version to override."
   fi
 fi
+
+# Construct Linux target name with GCC version
+LINUX_TARGET="linux-x86_64-gcc-${ACTUAL_GCC_VERSION%%.*}"
 
 ICU_URL="https://github.com/unicode-org/icu/releases/download/release-${ICU_VERSION//./-}/icu4c-${ICU_VERSION//./_}-src.tgz"
 
@@ -115,7 +118,7 @@ build_icu() {
   ICU_SOURCE="$WORKDIR/icu/source"
 
   local ENABLE_TOOLS="--disable-tools"
-  if [ "$TARGET" = "linux-x86_64" ]; then
+  if [ "$TARGET" = "$LINUX_TARGET" ]; then
     ENABLE_TOOLS="--enable-tools"
   fi
 
@@ -139,8 +142,8 @@ build_icu() {
 
 # Step 3: Build targets
 
-# Native Linux x86_64
-build_icu "linux-x86_64" "" gcc g++ ar ranlib
+# Native Linux x86_64 with GCC versioned target name
+build_icu "$LINUX_TARGET" "" gcc g++ ar ranlib
 
 # Windows x86_64 (MinGW)
 build_icu "windows-x86_64"  \
@@ -149,7 +152,7 @@ build_icu "windows-x86_64"  \
   x86_64-w64-mingw32-g++    \
   x86_64-w64-mingw32-ar     \
   x86_64-w64-mingw32-ranlib \
-  "--with-cross-build=$WORKDIR/build-linux-x86_64"
+  "--with-cross-build=$WORKDIR/build-$LINUX_TARGET"
 
 # WebAssembly (Emscripten)
 source "$EMSDK/emsdk_env.sh"
@@ -163,9 +166,9 @@ build_icu "wasm32" \
   em++ \
   emar \
   emranlib \
-  "--with-cross-build=$WORKDIR/build-linux-x86_64"
+  "--with-cross-build=$WORKDIR/build-$LINUX_TARGET"
 
 # Done
 echo ""
 print_status "✅ ICU build complete. Output in: $DISTDIR"
-ls -l $DISTDIR
+ls -l "$DISTDIR"
