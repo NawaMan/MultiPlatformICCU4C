@@ -124,6 +124,7 @@ build_icu() {
 
   BUILD_DIR="$WORKDIR/build-$TARGET"
   INSTALL_DIR="$DISTDIR/$TARGET"
+  ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}-$TARGET.zip"
 
   rm -rf "$BUILD_DIR" "$INSTALL_DIR"
   mkdir -p "$BUILD_DIR"
@@ -153,6 +154,11 @@ build_icu() {
 
   make -j$(nproc)
   make install
+  
+  # Create zip file of the build result
+  print_status "Creating zip archive for $TARGET..."
+  (cd "$INSTALL_DIR" && zip -r "$ZIP_FILE" ./)
+  print_status "✅ Created $ZIP_FILE"
 }
 
 # Step 3: Build Linux target
@@ -188,4 +194,10 @@ fi
 # Done
 echo ""
 print_status "✅ ICU build complete. Output in: $DISTDIR"
-ls -l "$DISTDIR"
+
+# List directories and zip files
+print_status "Built directories:"
+ls -ld "$DISTDIR/"*/
+
+print_status "Zip archives:"
+ls -lh "$DISTDIR"/*.zip
