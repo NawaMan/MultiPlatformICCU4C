@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # icu-cross-build.sh: Cross-compile ICU4C as static library for multiple platforms
-# Platforms: linux-x86_64-gcc-13, windows-x86_64 (MinGW), wasm32 (Emscripten)
+# Platforms: linux-x86_64-gcc-13, windows-x86_64-gcc-13, wasm32 (Emscripten)
 
 set -e
 
@@ -47,7 +47,7 @@ for arg in "$@"; do
   fi
 done
 
-# Step: Enforce GCC version check
+# Step: Enforce GCC version check (for native Linux build)
 ACTUAL_GCC_VERSION=$(gcc -dumpversion)
 if [[ $IGNORE_COMPILER_VERSION -eq 0 ]]; then
   if [[ $ACTUAL_GCC_VERSION != $REQUIRED_GCC_VERSION* ]]; then
@@ -55,8 +55,12 @@ if [[ $IGNORE_COMPILER_VERSION -eq 0 ]]; then
   fi
 fi
 
-# Construct Linux target name with GCC version
+# Get MinGW GCC version
+MINGW_GCC_VERSION=$(x86_64-w64-mingw32-gcc -dumpversion || echo "unknown")
+
+# Construct target names
 LINUX_TARGET="linux-x86_64-gcc-${ACTUAL_GCC_VERSION%%.*}"
+WINDOWS_TARGET="windows-x86_64-gcc-${MINGW_GCC_VERSION%%.*}"
 
 ICU_URL="https://github.com/unicode-org/icu/releases/download/release-${ICU_VERSION//./-}/icu4c-${ICU_VERSION//./_}-src.tgz"
 
@@ -142,11 +146,11 @@ build_icu() {
 
 # Step 3: Build targets
 
-# Native Linux x86_64 with GCC versioned target name
+# Native Linux x86_64
 build_icu "$LINUX_TARGET" "" gcc g++ ar ranlib
 
 # Windows x86_64 (MinGW)
-build_icu "windows-x86_64"  \
+build_icu "$WINDOWS_TARGET"  \
   x86_64-w64-mingw32        \
   x86_64-w64-mingw32-gcc    \
   x86_64-w64-mingw32-g++    \
