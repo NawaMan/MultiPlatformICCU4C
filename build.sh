@@ -16,6 +16,7 @@ ENABLE_COVERAGE="OFF"
 CLEAN_BUILD=0
 VERBOSE_TESTS=0
 IGNORE_COMPILER_VERSION=0
+LINUX_ONLY=0
 
 # Colors for output
 RED='\033[0;31m'
@@ -40,11 +41,16 @@ exit_with_error() {
     exit 1
 }
 
-# Check for --ignore-compiler-version flag
+# Check command-line arguments
 for arg in "$@"; do
-  if [[ "$arg" == "--ignore-compiler-version" ]]; then
-    IGNORE_COMPILER_VERSION=1
-  fi
+  case "$arg" in
+    --ignore-compiler-version)
+      IGNORE_COMPILER_VERSION=1
+      ;;
+    --linux-gcc-13-only)
+      LINUX_ONLY=1
+      ;;
+  esac
 done
 
 # Step: Enforce GCC version check (for native Linux build)
@@ -55,8 +61,10 @@ if [[ $IGNORE_COMPILER_VERSION -eq 0 ]]; then
   fi
 fi
 
-# Get MinGW GCC version
-MINGW_GCC_VERSION=$(x86_64-w64-mingw32-gcc -dumpversion || echo "unknown")
+# Get MinGW GCC version (skip if linux-only)
+if [[ $LINUX_ONLY -eq 0 ]]; then
+  MINGW_GCC_VERSION=$(x86_64-w64-mingw32-gcc -dumpversion || echo "unknown")
+fi
 
 # Construct target names
 LINUX_TARGET="linux-x86_64-gcc-${ACTUAL_GCC_VERSION%%.*}"
@@ -67,18 +75,21 @@ ICU_URL="https://github.com/unicode-org/icu/releases/download/release-${ICU_VERS
 WORKDIR=$(pwd)/icu-build
 DISTDIR=$(pwd)/icu-dist
 
-print_section "Download Emscripten"
+# Emscripten setup (skip if linux-only)
+if [[ $LINUX_ONLY -eq 0 ]]; then
+  print_section "Download Emscripten"
 
-if [ ! -d emsdk ]; then
-  git clone https://github.com/emscripten-core/emsdk.git
+  if [ ! -d emsdk ]; then
+    git clone https://github.com/emscripten-core/emsdk.git
+  fi
+
+  cd emsdk
+  EMSDK=$(pwd)
+  git checkout $ENSDK_VERSION
+  ./emsdk install latest
+  ./emsdk activate latest
+  cd -
 fi
-
-cd emsdk
-EMSDK=$(pwd)
-git checkout $ENSDK_VERSION
-./emsdk install latest
-./emsdk activate latest
-cd -
 
 mkdir -p "$WORKDIR" "$DISTDIR"
 cd "$WORKDIR"
@@ -144,33 +155,35 @@ build_icu() {
   make install
 }
 
-# Step 3: Build targets
-
-# Native Linux x86_64
+# Step 3: Build Linux target
 build_icu "$LINUX_TARGET" "" gcc g++ ar ranlib
 
-# Windows x86_64 (MinGW)
-build_icu "$WINDOWS_TARGET"  \
-  x86_64-w64-mingw32        \
-  x86_64-w64-mingw32-gcc    \
-  x86_64-w64-mingw32-g++    \
-  x86_64-w64-mingw32-ar     \
-  x86_64-w64-mingw32-ranlib \
-  "--with-cross-build=$WORKDIR/build-$LINUX_TARGET"
+# Step 4: Optionally build Windows and WebAssembly
+if [[ $LINUX_ONLY -eq 0 ]]; then
 
-# WebAssembly (Emscripten)
-source "$EMSDK/emsdk_env.sh"
+  # Windows x86_64 (MinGW)
+  build_icu "$WINDOWS_TARGET"  \
+    x86_64-w64-mingw32        \
+    x86_64-w64-mingw32-gcc    \
+    x86_64-w64-mingw32-g++    \
+    x86_64-w64-mingw32-ar     \
+    x86_64-w64-mingw32-ranlib \
+    "--with-cross-build=$WORKDIR/build-$LINUX_TARGET"
 
-# Force platform detection by copying mh-linux to mh-unknown
-cp "$WORKDIR/icu/source/config/mh-linux" "$WORKDIR/icu/source/config/mh-unknown"
+  # WebAssembly (Emscripten)
+  source "$EMSDK/emsdk_env.sh"
 
-build_icu "wasm32" \
-  wasm32 \
-  emcc \
-  em++ \
-  emar \
-  emranlib \
-  "--with-cross-build=$WORKDIR/build-$LINUX_TARGET"
+  # Force platform detection by copying mh-linux to mh-unknown
+  cp "$WORKDIR/icu/source/config/mh-linux" "$WORKDIR/icu/source/config/mh-unknown"
+
+  build_icu "wasm32" \
+    wasm32 \
+    emcc \
+    em++ \
+    emar \
+    emranlib \
+    "--with-cross-build=$WORKDIR/build-$LINUX_TARGET"
+fi
 
 # Done
 echo ""
