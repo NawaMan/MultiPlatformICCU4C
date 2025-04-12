@@ -35,5 +35,11 @@ COPY build.sh /app/
 # Make the script executable
 RUN chmod +x /app/build.sh
 
+# Create the icu-dist directory
+RUN mkdir -p /app/icu-dist
+
 # Set the entrypoint to the build script
 ENTRYPOINT ["/bin/bash", "/app/build.sh"]
+
+# Define a volume for the output
+VOLUME ["/app/icu-dist"]
