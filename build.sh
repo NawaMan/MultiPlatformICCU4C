@@ -97,22 +97,6 @@ DISTDIR=$(pwd)/dist
 # Construct target names
 LINUX_CLANG_TARGET="linux-x86_64-clang-${ACTUAL_CLANG_VERSION%%.*}"
 
-# Emscripten setup
-if [[ $BUILD_WASM32 -eq 1 ]]; then
-  print_section "Prepare Emscripten"
-
-  if [ ! -d emsdk ]; then
-    git clone https://github.com/emscripten-core/emsdk.git
-  fi
-
-  cd emsdk
-  EMSDK=$(pwd)
-  git checkout $ENSDK_VERSION
-  ./emsdk install latest
-  ./emsdk activate latest
-  cd -
-fi
-
 
 print_section "Prepare ICU"
 
@@ -210,6 +194,18 @@ fi
 
 if [[ $BUILD_WASM32 -eq 1 ]]; then
   print_section "Build WEB ASM"
+
+  if [ ! -d emsdk ]; then
+    git clone https://github.com/emscripten-core/emsdk.git
+  fi
+
+  cd emsdk
+  EMSDK=$(pwd)
+  git checkout $ENSDK_VERSION
+  ./emsdk install latest
+  ./emsdk activate latest
+  cd -
+
   source "$EMSDK/emsdk_env.sh"
   cp "$WORKDIR/icu/source/config/mh-linux" "$WORKDIR/icu/source/config/mh-unknown"
 

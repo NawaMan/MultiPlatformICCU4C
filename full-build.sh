@@ -31,8 +31,6 @@ docker build . -t icu4c-builder
 # Create icu-dist directory if it doesn't exist
 mkdir -p $(pwd)/$DISTDIR
 
-chmod ugo+rwx $(pwd)/$DISTDIR
-
 # Run the container with volume mapping for icu-dist
 docker run --rm -v $(pwd)/$DISTDIR:/app/$DISTDIR icu4c-builder:latest
 
@@ -44,3 +42,5 @@ ls -ld "$DISTDIR/"*/
 
 print_status "Zip archives:"
 ls -l "$DISTDIR"/*.zip
+
+chmod ugo+rwx $(pwd)/$DISTDIR
