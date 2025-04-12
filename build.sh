@@ -1,11 +1,27 @@
 #!/bin/bash
 
 # icu-cross-build.sh: Cross-compile ICU4C as static library for multiple platforms
-# Platforms: linux-x86_64-gcc-13, windows-x86_64-gcc-13, wasm32 (Emscripten)
+# Platforms: linux-x86_64-gcc-13, linux-x86_64-clang-18, windows-x86_64-gcc-13, wasm32 (Emscripten)
 
 set -e
 
+if [[ "$1" == "--help" ]]; then
+  echo -e "${YELLOW}Usage:${NC} $0 [options]\n"
+  echo "Options:"
+  echo "  --quick, --clang-only         Only build for Linux using Clang 18"
+  echo "  --ignore-compiler-version     Skip compiler version checks"
+  echo "  --clean                       Run clean.sh before building"
+  echo "  --help                        Show this help message"
+  echo
+  echo "By default, this script builds ICU for:"
+  echo "  - Linux (GCC 13 and Clang 18)"
+  echo "  - Windows (MinGW GCC 13)"
+  echo "  - WebAssembly (Emscripten ${ENSDK_VERSION})"
+  exit 0
+fi
+
 REQUIRED_GCC_VERSION="13"
+REQUIRED_CLANG_VERSION="18"
 ICU_VERSION="74.2"
 ICU_MAJ_VER="74"
 ENSDK_VERSION="4.0.6"
@@ -17,6 +33,11 @@ CLEAN_BUILD=0
 VERBOSE_TESTS=0
 IGNORE_COMPILER_VERSION=0
 LINUX_ONLY=0
+
+BUILD_CLANG=1
+BUILD_GCC=1
+BUILD_MINGW32=1
+BUILD_WASM32=1
 
 # Colors for output
 RED='\033[0;31m'
@@ -47,37 +68,38 @@ for arg in "$@"; do
     --ignore-compiler-version)
       IGNORE_COMPILER_VERSION=1
       ;;
-    --linux-gcc-13-only)
-      LINUX_ONLY=1
+    --quick|--clang-only)
+      BUILD_CLANG=1
+      BUILD_GCC=0
+      BUILD_MINGW32=0
+      BUILD_WASM32=0
+      ;;
+    --clean)
+      print_section "Cleaning build output"
+      ./clean.sh
       ;;
   esac
 done
 
-# Step: Enforce GCC version check (for native Linux build)
-ACTUAL_GCC_VERSION=$(gcc -dumpversion)
-if [[ $IGNORE_COMPILER_VERSION -eq 0 ]]; then
-  if [[ $ACTUAL_GCC_VERSION != $REQUIRED_GCC_VERSION* ]]; then
-    exit_with_error "GCC version $REQUIRED_GCC_VERSION.x is required, but found $ACTUAL_GCC_VERSION. Use --ignore-compiler-version to override."
+# Step: Enforce Clang version check
+ACTUAL_CLANG_VERSION=$(clang --version | grep -o 'clang version [0-9]\+' | awk '{print $3}')
+if [[ $BUILD_CLANG -eq 1 && $IGNORE_COMPILER_VERSION -eq 0 ]]; then
+  if [[ $ACTUAL_CLANG_VERSION != $REQUIRED_CLANG_VERSION* ]]; then
+    exit_with_error "Clang version $REQUIRED_CLANG_VERSION.x is required, but found $ACTUAL_CLANG_VERSION. Use --ignore-compiler-version to override."
   fi
 fi
-
-# Get MinGW GCC version (skip if linux-only)
-if [[ $LINUX_ONLY -eq 0 ]]; then
-  MINGW_GCC_VERSION=$(x86_64-w64-mingw32-gcc -dumpversion || echo "unknown")
-fi
-
-# Construct target names
-LINUX_TARGET="linux-x86_64-gcc-${ACTUAL_GCC_VERSION%%.*}"
-WINDOWS_TARGET="windows-x86_64-gcc-${MINGW_GCC_VERSION%%.*}"
 
 ICU_URL="https://github.com/unicode-org/icu/releases/download/release-${ICU_VERSION//./-}/icu4c-${ICU_VERSION//./_}-src.tgz"
 
 WORKDIR=$(pwd)/icu-build
-DISTDIR=$(pwd)/icu-dist
+DISTDIR=$(pwd)/dist
 
-# Emscripten setup (skip if linux-only)
-if [[ $LINUX_ONLY -eq 0 ]]; then
-  print_section "Download Emscripten"
+# Construct target names
+LINUX_CLANG_TARGET="linux-x86_64-clang-${ACTUAL_CLANG_VERSION%%.*}"
+
+# Emscripten setup
+if [[ $BUILD_WASM32 -eq 1 ]]; then
+  print_section "Prepare Emscripten"
 
   if [ ! -d emsdk ]; then
     git clone https://github.com/emscripten-core/emsdk.git
@@ -91,18 +113,19 @@ if [[ $LINUX_ONLY -eq 0 ]]; then
   cd -
 fi
 
+
+print_section "Prepare ICU"
+
 mkdir -p "$WORKDIR" "$DISTDIR"
 cd "$WORKDIR"
 
-print_section "Download ICU"
-
-# Step 1: Download ICU source
+#  Download ICU source
 if [ ! -f "icu4c.tgz" ]; then
   echo "Downloading ICU4C..."
   wget -O icu4c.tgz "$ICU_URL"
 fi
 
-# Step 2: Extract
+#  Extract
 rm -rf icu
 mkdir icu
 cd icu
@@ -134,7 +157,7 @@ build_icu() {
   ICU_SOURCE="$WORKDIR/icu/source"
 
   local ENABLE_TOOLS="--disable-tools"
-  if [ "$TARGET" = "$LINUX_TARGET" ]; then
+  if [[ "$TARGET" == "$LINUX_GCC_TARGET" || "$TARGET" == "$LINUX_CLANG_TARGET" ]]; then
     ENABLE_TOOLS="--enable-tools"
   fi
 
@@ -154,32 +177,40 @@ build_icu() {
 
   make -j$(nproc)
   make install
-  
-  # Create zip file of the build result
+
   print_status "Creating zip archive for $TARGET..."
   (cd "$INSTALL_DIR" && zip -r "$ZIP_FILE" ./)
   print_status "✅ Created $ZIP_FILE"
 }
 
-# Step 3: Build Linux target
-build_icu "$LINUX_TARGET" "" gcc g++ ar ranlib
+if [[ $BUILD_CLANG -eq 1 ]]; then
+  print_section "Build CLANG"
+  build_icu "$LINUX_CLANG_TARGET" "" clang clang++ llvm-ar llvm-ranlib
+fi
 
-# Step 4: Optionally build Windows and WebAssembly
-if [[ $LINUX_ONLY -eq 0 ]]; then
+if [[ $BUILD_GCC -eq 1 ]]; then
+  print_section "Build GCC"
+  ACTUAL_GCC_VERSION=$(gcc -dumpversion)
+  LINUX_GCC_TARGET="linux-x86_64-gcc-${ACTUAL_GCC_VERSION%%.*}"
+  build_icu "$LINUX_GCC_TARGET" "" gcc g++ ar ranlib
+fi
 
-  # Windows x86_64 (MinGW)
+if [[ $BUILD_MINGW32 -eq 1 ]]; then
+  print_section "Build MINGW32"
+  MINGW_GCC_VERSION=$(x86_64-w64-mingw32-gcc -dumpversion || echo "unknown")
+  WINDOWS_TARGET="windows-x86_64-gcc-${MINGW_GCC_VERSION%%.*}"
   build_icu "$WINDOWS_TARGET"  \
     x86_64-w64-mingw32        \
     x86_64-w64-mingw32-gcc    \
     x86_64-w64-mingw32-g++    \
     x86_64-w64-mingw32-ar     \
     x86_64-w64-mingw32-ranlib \
-    "--with-cross-build=$WORKDIR/build-$LINUX_TARGET"
+    "--with-cross-build=$WORKDIR/build-$LINUX_GCC_TARGET"
+fi
 
-  # WebAssembly (Emscripten)
+if [[ $BUILD_WASM32 -eq 1 ]]; then
+  print_section "Build WEB ASM"
   source "$EMSDK/emsdk_env.sh"
-
-  # Force platform detection by copying mh-linux to mh-unknown
   cp "$WORKDIR/icu/source/config/mh-linux" "$WORKDIR/icu/source/config/mh-unknown"
 
   build_icu "wasm32" \
@@ -188,16 +219,7 @@ if [[ $LINUX_ONLY -eq 0 ]]; then
     em++ \
     emar \
     emranlib \
-    "--with-cross-build=$WORKDIR/build-$LINUX_TARGET"
+    "--with-cross-build=$WORKDIR/build-$LINUX_GCC_TARGET"
 fi
 
-# Done
-echo ""
-print_status "✅ ICU build complete. Output in: $DISTDIR"
-
-# List directories and zip files
-print_status "Built directories:"
-ls -ld "$DISTDIR/"*/
-
-print_status "Zip archives:"
-ls -lh "$DISTDIR"/*.zip
+chmod -R ugo+rwx "$DISTDIR"
