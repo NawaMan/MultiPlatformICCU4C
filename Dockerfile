@@ -12,6 +12,8 @@ RUN apt-get update && apt-get install -y \
     clang-18 \
     cmake \
     flex \
+    g++-multilib \
+    gcc-multilib \
     git \
     libc++-18-dev \
     libc++abi-18-dev \
