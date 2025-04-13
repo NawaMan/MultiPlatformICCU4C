@@ -161,6 +161,75 @@ build_llvm_ir_variant() {
 }
 
 
+# Add support for wasm64
+build_wasm_llvm_ir_variant() {
+  local TARGET="wasm64"
+  local LLVM_IR_DIR="$DISTDIR/llvm-ir-${ACTUAL_CLANG_VERSION%%.*}/wasm64"
+  local LLVM_BC_DIR="$DISTDIR/llvm-bc-${ACTUAL_CLANG_VERSION%%.*}/wasm64"
+  mkdir -p "$LLVM_IR_DIR" "$LLVM_BC_DIR"
+
+  print_section "Generating LLVM IR/BC files for WebAssembly (wasm64)"
+
+  find "$ICU_SOURCE" -name '*.cpp' \
+    ! -path '*/samples/*' \
+    ! -path '*/test/*' \
+    ! -path '*/perf/*' \
+    ! -path '*/tools/*' \
+    | while read -r cppfile; do
+
+    relpath=$(realpath --relative-to="$ICU_SOURCE" "$cppfile")
+    if grep -q 'LETypes.h' "$cppfile"; then
+      print "⚠️  Skipping $relpath (LETypes.h)"
+      continue
+    fi
+
+    mkdir -p "$LLVM_IR_DIR/$(dirname "$relpath")"
+    mkdir -p "$LLVM_BC_DIR/$(dirname "$relpath")"
+
+    macro=""
+    case "$cppfile" in
+      */common/*)   macro="-DU_COMMON_IMPLEMENTATION" ;; 
+      */i18n/*)     macro="-DU_I18N_IMPLEMENTATION" ;; 
+      */layoutex/*) macro="-DU_LAYOUTEX_IMPLEMENTATION" ;; 
+      */io/*)       macro="-DU_IO_IMPLEMENTATION" ;; 
+    esac
+
+    em++ -std=c++23 -S -emit-llvm -target wasm64-unknown-unknown-wasm $macro \
+      -I"$ICU_SOURCE" -I"$ICU_SOURCE/common" -I"$ICU_SOURCE/i18n" \
+      -I"$ICU_SOURCE/layoutex" -I"$ICU_SOURCE/layout" -I"$ICU_SOURCE/io" \
+      "$cppfile" \
+      -o "$LLVM_IR_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).ll" || exit_with_error "Failed IR: $relpath"
+
+    em++ -std=c++23 -c -emit-llvm -O2 -target wasm64-unknown-unknown-wasm $macro \
+      -I"$ICU_SOURCE" -I"$ICU_SOURCE/common" -I"$ICU_SOURCE/i18n" \
+      -I"$ICU_SOURCE/layoutex" -I"$ICU_SOURCE/layout" -I"$ICU_SOURCE/io" \
+      "$cppfile" \
+      -o "$LLVM_BC_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).bc" || exit_with_error "Failed BC: $relpath"
+  done
+
+  # Assemble devkit
+  LLVM_KIT_DIR="$DISTDIR/llvm-kit-${ACTUAL_CLANG_VERSION%%.*}-wasm64"
+  mkdir -p "$LLVM_KIT_DIR/llvm-ir" "$LLVM_KIT_DIR/llvm-bc"
+  rsync -a "$LLVM_IR_DIR/" "$LLVM_KIT_DIR/llvm-ir/"
+  rsync -a "$LLVM_BC_DIR/" "$LLVM_KIT_DIR/llvm-bc/"
+  rsync -a "$DISTDIR/$LINUX_CLANG_TARGET/include/" "$LLVM_KIT_DIR/include/"
+
+  # Add helper scripts
+  KIT_FILES="$WORKDIR/../artifacts/llvm-devkit"
+  if [ -f "$KIT_FILES/build-lib-from-llvm.sh" ]; then
+    cp "$KIT_FILES/build-lib-from-llvm.sh" "$LLVM_KIT_DIR/"
+  fi
+  if [ -f "$KIT_FILES/README.md" ]; then
+    cp "$KIT_FILES/README.md" "$LLVM_KIT_DIR/"
+  fi
+
+  # Create zip
+  ZIP_OUT="$DISTDIR/icu4c-${ICU_VERSION}-llvm-kit-wasm64.zip"
+  (cd "$LLVM_KIT_DIR" && zip -r "$ZIP_OUT" .)
+  print_status "✅ Created full LLVM kit zip (wasm64): $ZIP_OUT"
+}
+
+
 build_icu() {
   TARGET="$1"; HOST="$2"; CC="$3"; CXX="$4"; AR="$5"; RANLIB="$6"; EXTRA_FLAGS="$7"
   print_section "Build ICU for $TARGET"
@@ -248,6 +317,8 @@ if [[ $BUILD_WASM32 -eq 1 ]]; then
   source "$EMSDK/emsdk_env.sh"
   cp "$WORKDIR/icu/source/config/mh-linux" "$WORKDIR/icu/source/config/mh-unknown"
   build_icu "wasm32" wasm32 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_GCC_TARGET"
+  build_icu "wasm64" wasm64 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_GCC_TARGET"
+  build_wasm_llvm_ir_variant
 fi
 
 print_status "✅ ICU build complete. Output in: $DISTDIR"
