@@ -1,5 +1,4 @@
 # Build artifacts
-emsdk
-icu-build/
-icu-dist/
+emsdk/
+build/
 dist/
