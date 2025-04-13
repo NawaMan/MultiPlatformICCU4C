@@ -1,3 +1,3 @@
 #!/bin/sh
 
-rm -rf icu-build icu-dist emsdk
+rm -rf icu-build dist emsdk

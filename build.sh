@@ -5,25 +5,10 @@
 
 set -e
 
-if [[ "$1" == "--help" ]]; then
-  echo -e "${YELLOW}Usage:${NC} $0 [options]\n"
-  echo "Options:"
-  echo "  --quick, --clang-only         Only build for Linux using Clang 18"
-  echo "  --ignore-compiler-version     Skip compiler version checks"
-  echo "  --clean                       Run clean.sh before building"
-  echo "  --help                        Show this help message"
-  echo
-  echo "By default, this script builds ICU for:"
-  echo "  - Linux (GCC 13 and Clang 18)"
-  echo "  - Windows (MinGW GCC 13)"
-  echo "  - WebAssembly (Emscripten ${ENSDK_VERSION})"
-  exit 0
-fi
-
 REQUIRED_GCC_VERSION="13"
 REQUIRED_CLANG_VERSION="18"
-ICU_VERSION="74.2"
-ICU_MAJ_VER="74"
+ICU_VERSION="77.1"
+ICU_MAJ_VER="77"
 ENSDK_VERSION="4.0.6"
 
 # Default configuration
@@ -32,12 +17,12 @@ ENABLE_COVERAGE="OFF"
 CLEAN_BUILD=0
 VERBOSE_TESTS=0
 IGNORE_COMPILER_VERSION=0
-LINUX_ONLY=0
 
 BUILD_CLANG=1
 BUILD_GCC=1
 BUILD_MINGW32=1
 BUILD_WASM32=1
+BUILD_LLVMIR=1
 
 # Colors for output
 RED='\033[0;31m'
@@ -46,42 +31,45 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Function to print section header
 print_section() {
     echo -e "\n${YELLOW}=== $1 ===${NC}\n"
 }
 
-# Function to print status
 print_status() {
     echo -e "${BLUE}$1${NC}"
 }
 
-# Function to print error and exit
 exit_with_error() {
     echo -e "${RED}ERROR: $1${NC}"
     exit 1
 }
 
-# Check command-line arguments
+# Help
+if [[ "$1" == "--help" ]]; then
+  echo -e "${YELLOW}Usage:${NC} $0 [options]\n"
+  echo "Options:"
+  echo "  --quick, --clang-only         Only build for Linux using Clang 18"
+  echo "  --ignore-compiler-version     Skip compiler version checks"
+  echo "  --clean                       Run clean.sh before building"
+  echo "  --help                        Show this help message"
+  exit 0
+fi
+
 for arg in "$@"; do
   case "$arg" in
-    --ignore-compiler-version)
-      IGNORE_COMPILER_VERSION=1
-      ;;
+    --ignore-compiler-version) IGNORE_COMPILER_VERSION=1 ;;
     --quick|--clang-only)
       BUILD_CLANG=1
       BUILD_GCC=0
       BUILD_MINGW32=0
       BUILD_WASM32=0
-      ;;
+      BUILD_LLVMIR=0 ;;
     --clean)
       print_section "Cleaning build output"
-      ./clean.sh
-      ;;
+      ./clean.sh ;;
   esac
 done
 
-# Step: Enforce Clang version check
 ACTUAL_CLANG_VERSION=$(clang --version | grep -o 'clang version [0-9]\+' | awk '{print $3}')
 if [[ $BUILD_CLANG -eq 1 && $IGNORE_COMPILER_VERSION -eq 0 ]]; then
   if [[ $ACTUAL_CLANG_VERSION != $REQUIRED_CLANG_VERSION* ]]; then
@@ -93,31 +81,24 @@ ICU_URL="https://github.com/unicode-org/icu/releases/download/release-${ICU_VERS
 
 WORKDIR=$(pwd)/icu-build
 DISTDIR=$(pwd)/dist
-
-# Construct target names
 LINUX_CLANG_TARGET="linux-x86_64-clang-${ACTUAL_CLANG_VERSION%%.*}"
-
 
 print_section "Prepare ICU"
 
 mkdir -p "$WORKDIR" "$DISTDIR"
+chmod -R ugo+rwx "$DISTDIR"
 cd "$WORKDIR"
 
-#  Download ICU source
 if [ ! -f "icu4c.tgz" ]; then
   echo "Downloading ICU4C..."
   wget -O icu4c.tgz "$ICU_URL"
 fi
 
-#  Extract
 rm -rf icu
 mkdir icu
 cd icu
-
-# Some releases require extracting twice
 tar -xzf ../icu4c.tgz --strip-components=1
 
-# Function: build for a given target
 build_icu() {
   TARGET="$1"
   HOST="$2"
@@ -141,12 +122,20 @@ build_icu() {
   ICU_SOURCE="$WORKDIR/icu/source"
 
   local ENABLE_TOOLS="--disable-tools"
-  if [[ "$TARGET" == "$LINUX_GCC_TARGET" || "$TARGET" == "$LINUX_CLANG_TARGET" ]]; then
+  if [[ "$TARGET" == "$LINUX_CLANG_TARGET" || "$TARGET" == "$LINUX_GCC_TARGET" ]]; then
     ENABLE_TOOLS="--enable-tools"
+  fi
+
+  EXTRA_CFLAGS=""
+  EXTRA_CXXFLAGS=""
+  if [[ "$CC" == "clang" ]]; then
+    EXTRA_CFLAGS="-O2"
+    EXTRA_CXXFLAGS="-O2"
   fi
 
   PKG_CONFIG_LIBDIR= \
   CC="$CC" CXX="$CXX" AR="$AR" RANLIB="$RANLIB" \
+  CFLAGS="$EXTRA_CFLAGS" CXXFLAGS="$EXTRA_CXXFLAGS" \
   "$ICU_SOURCE/configure" \
     --prefix="$INSTALL_DIR" \
     --host="$HOST" \
@@ -165,6 +154,74 @@ build_icu() {
   print_status "Creating zip archive for $TARGET..."
   (cd "$INSTALL_DIR" && zip -r "$ZIP_FILE" ./)
   print_status "✅ Created $ZIP_FILE"
+
+  # ========== Emit LLVM IR (.ll) if Clang ==========
+  if [[ "$CC" == "clang" && "$BUILD_LLVMIR" == "1" ]]; then
+    print_section "Generating LLVM IR (.ll) files for $TARGET"
+
+    LLVM_IR_DIR="$DISTDIR/llvm-ir/$TARGET"
+    mkdir -p "$LLVM_IR_DIR"
+
+    SKIP_LLVM_CPP=(
+      "layoutex/playout.cpp"
+      "layoutex/LXUtilities.cpp"
+      "layoutex/RunArrays.cpp"
+    )
+
+    should_skip_ll() {
+      for skip in "${SKIP_LLVM_CPP[@]}"; do
+        if [[ "$1" == "$skip" ]]; then
+          return 0
+        fi
+      done
+      return 1
+    }
+
+    find "$ICU_SOURCE" -name '*.cpp' \
+        ! -path '*/samples/*' \
+        ! -path '*/test/*' \
+        ! -path '*/perf/*' \
+        ! -path '*/tools/*' | while read -r cppfile; do
+      relpath=$(realpath --relative-to="$ICU_SOURCE" "$cppfile")
+      
+      if grep -q 'LETypes.h' "$cppfile"; then
+        echo "⚠️  Skipping file due to reference to removed LE layout: $relpath"
+        continue
+      fi
+
+      if should_skip_ll "$relpath"; then
+        echo "⚠️  Skipping known problematic file: $relpath"
+        continue
+      fi
+
+      outdir="$LLVM_IR_DIR/$(dirname "$relpath")"
+      mkdir -p "$outdir"
+
+      cpp_macro=""
+      case "$cppfile" in
+        */common/*)   cpp_macro="-DU_COMMON_IMPLEMENTATION" ;;
+        */i18n/*)     cpp_macro="-DU_I18N_IMPLEMENTATION" ;;
+        */layoutex/*) cpp_macro="-DU_LAYOUTEX_IMPLEMENTATION" ;;
+        */io/*)       cpp_macro="-DU_IO_IMPLEMENTATION" ;;
+      esac
+
+      clang -std=c++23 -S -emit-llvm \
+        $cpp_macro \
+        -I"$ICU_SOURCE" \
+        -I"$ICU_SOURCE/common" \
+        -I"$ICU_SOURCE/i18n" \
+        -I"$ICU_SOURCE/layoutex" \
+        -I"$ICU_SOURCE/layout" \
+        -I"$ICU_SOURCE/io" \
+        "$cppfile" \
+        -o "$outdir/$(basename "$cppfile" .cpp).ll" || {
+          echo "❌ Failed to compile: $relpath"
+          exit 1
+      }
+    done
+
+    print_status "✅ LLVM IR files saved to: $LLVM_IR_DIR"
+  fi
 }
 
 if [[ $BUILD_CLANG -eq 1 ]]; then
@@ -183,11 +240,11 @@ if [[ $BUILD_MINGW32 -eq 1 ]]; then
   print_section "Build MINGW32"
   MINGW_GCC_VERSION=$(x86_64-w64-mingw32-gcc -dumpversion || echo "unknown")
   WINDOWS_TARGET="windows-x86_64-gcc-${MINGW_GCC_VERSION%%.*}"
-  build_icu "$WINDOWS_TARGET"  \
-    x86_64-w64-mingw32        \
-    x86_64-w64-mingw32-gcc    \
-    x86_64-w64-mingw32-g++    \
-    x86_64-w64-mingw32-ar     \
+  build_icu "$WINDOWS_TARGET" \
+    x86_64-w64-mingw32 \
+    x86_64-w64-mingw32-gcc \
+    x86_64-w64-mingw32-g++ \
+    x86_64-w64-mingw32-ar \
     x86_64-w64-mingw32-ranlib \
     "--with-cross-build=$WORKDIR/build-$LINUX_GCC_TARGET"
 fi
