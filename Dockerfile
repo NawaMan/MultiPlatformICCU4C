@@ -24,8 +24,10 @@ RUN apt-get update && apt-get install -y \
     npm \
     pkg-config \
     python3 \
+    rsync \
     sed \
     tar \
+    tree \
     unzip \
     wget \
     zip \
@@ -42,7 +44,8 @@ RUN update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 100 \
 WORKDIR /app
 
 # Copy the build script
-COPY build.sh /app/
+COPY build.sh  /app/
+COPY artifacts /app/artifacts
 
 # Make the script executable
 RUN chmod +x /app/build.sh

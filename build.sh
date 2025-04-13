@@ -23,6 +23,12 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+
+
+print() {
+    echo "$@"
+}
+
 print_section() {
     echo -e "\n${YELLOW}=== $1 ===${NC}\n"
 }
@@ -40,12 +46,12 @@ exit_with_error() {
 
 # Help
 if [[ "$1" == "--help" ]]; then
-  echo -e "${YELLOW}Usage:${NC} $0 [options]\n"
-  echo "Options:"
-  echo "  --quick                      Only build for Linux using Clang 18"
-  echo "  --ignore-compiler-version    Skip compiler version checks"
-  echo "  --clean                      Run clean.sh before building"
-  echo "  --help                       Show this help message"
+  print -e "${YELLOW}Usage:${NC} $0 [options]\n"
+  print "Options:"
+  print "  --quick                      Only build for Linux using Clang 18"
+  print "  --ignore-compiler-version    Skip compiler version checks"
+  print "  --clean                      Run clean.sh before building"
+  print "  --help                       Show this help message"
   exit 0
 fi
 
@@ -96,7 +102,7 @@ print_section "Prepare ICU"
 ICU4C_FILE=icu4c.tgz
 
 if [ ! -f "$ICU4C_FILE" ]; then
-  echo "Downloading ICU4C..."
+  print "Downloading ICU4C..."
   wget -O $ICU4C_FILE "$ICU_URL"
 fi
 
@@ -104,6 +110,16 @@ rm -rf icu
 mkdir icu
 cd icu
 tar -xzf ../$ICU4C_FILE --strip-components=1
+
+
+
+ACTUAL_CLANG_VERSION=$(clang --version | grep -o 'clang version [0-9]\+' | awk '{print $3}')
+if [[ $BUILD_CLANG -eq 1 && $IGNORE_COMPILER_VERSION -eq 0 ]]; then
+  if [[ $ACTUAL_CLANG_VERSION != $REQUIRED_CLANG_VERSION* ]]; then
+    exit_with_error "Clang version $REQUIRED_CLANG_VERSION.x is required, but found $ACTUAL_CLANG_VERSION. Use --ignore-compiler-version to override."
+  fi
+fi
+LINUX_CLANG_TARGET="linux-x86_64-clang-${ACTUAL_CLANG_VERSION%%.*}"
 
 
 
@@ -187,7 +203,7 @@ build_icu() {
       # So we work around by skip any files that use it.
       # It may be a problem later, but let's go with this for now.
       if grep -q 'LETypes.h' "$cppfile"; then
-        echo "⚠️  Skipping file due to reference to removed LE layout: $relpath"
+        print "⚠️  Skipping file due to reference to removed LE layout: $relpath"
         continue
       fi
 
@@ -221,12 +237,25 @@ build_icu() {
     done
 
     print_status "✅ LLVM IR files saved to: $LLVM_IR_DIR"
-    
+
+    LLVM_BASE_DIR="$WORKDIR/llvm-devkit"
+    mkdir -p "$LLVM_BASE_DIR/llvm-ir"
+
+    KIT_FILES="$WORKDIR/../artifacts/llvm-devkit"
+    if [ ! -f "$KIT_FILES/build-lib-from-llvm.sh" ]; then
+      print "⚠️ Missing kit artifacts (e.g. build-lib-from-llvm.sh)"
+    fi
+
+    rsync -a --exclude='.DS_Store' "$LLVM_IR_DIR/" "$LLVM_BASE_DIR/llvm-ir/"
+    rsync -a "$DISTDIR/$LINUX_CLANG_TARGET/include/" "$LLVM_BASE_DIR/include/"
+    rsync -a "$KIT_FILES/" "$LLVM_BASE_DIR/"
+
     # Create zip archive of LLVM IR files
-    LLVM_IR_ZIP="$DISTDIR/icu4c-${ICU_VERSION}-${TARGET}-llvm-ir.zip"
     print_status "Creating LLVM IR zip archive..."
-    (cd "$DISTDIR/llvm-ir-${ACTUAL_CLANG_VERSION%%.*}" && zip -r "$LLVM_IR_ZIP" "$TARGET")
-    
+    LLVM_IR_KIT_ZIP="$DISTDIR/icu4c-${ICU_VERSION}-llvm-ir-kit.zip"
+    rm -f "$LLVM_IR_KIT_ZIP"
+    zip -r "$DISTDIR/icu4c-${ICU_VERSION}-llvm-ir-kit.zip" -j "$LLVM_BASE_DIR"
+
     print_status "✅ Created $LLVM_IR_ZIP"
   fi
 }
@@ -235,15 +264,6 @@ build_icu() {
 
 if [[ $BUILD_CLANG -eq 1 ]]; then
   print_section "Build CLANG"
-
-  ACTUAL_CLANG_VERSION=$(clang --version | grep -o 'clang version [0-9]\+' | awk '{print $3}')
-  if [[ $BUILD_CLANG -eq 1 && $IGNORE_COMPILER_VERSION -eq 0 ]]; then
-    if [[ $ACTUAL_CLANG_VERSION != $REQUIRED_CLANG_VERSION* ]]; then
-      exit_with_error "Clang version $REQUIRED_CLANG_VERSION.x is required, but found $ACTUAL_CLANG_VERSION. Use --ignore-compiler-version to override."
-    fi
-  fi
-  LINUX_CLANG_TARGET="linux-x86_64-clang-${ACTUAL_CLANG_VERSION%%.*}"
-
   build_icu "$LINUX_CLANG_TARGET" "" clang clang++ llvm-ar llvm-ranlib
 fi
 
