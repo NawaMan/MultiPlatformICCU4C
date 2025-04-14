@@ -3,6 +3,10 @@ FROM ubuntu:24.04
 # Set non-interactive installation
 ARG DEBIAN_FRONTEND=noninteractive
 
+# Add i386 architecture
+RUN dpkg --add-architecture i386 && \
+    apt-get update
+
 # Update and install dependencies
 RUN apt-get update && apt-get install -y \
     autoconf \
@@ -18,6 +22,8 @@ RUN apt-get update && apt-get install -y \
     git \
     libc++-18-dev \
     libc++abi-18-dev \
+    libc6-dev-i386 \
+    libstdc++-13-dev:i386 \
     libtool \
     libxml2-dev \
     lld-18 \
