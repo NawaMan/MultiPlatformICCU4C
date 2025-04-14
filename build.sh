@@ -1,7 +1,9 @@
 #!/bin/bash
 
-# icu-cross-build.sh: Cross-compile ICU4C as static library for multiple platforms
-# Platforms: linux-x86_64-gcc-13, linux-x86_64-clang-18, windows-x86_64-gcc-13, wasm32 (Emscripten)
+# WARNING! This file is to be used by quick-build.sh (local build) or full-build.sh (docker build).
+# Make sure you know what you are doing if you are calling this directly.
+
+# build.sh: Cross-compile ICU4C as static library for multiple platforms
 
 set -e
 # set -x
@@ -17,7 +19,6 @@ if [[ "$1" == "--help" ]]; then
   exit 0
 fi
 
-REQUIRED_GCC_VERSION="13"
 REQUIRED_CLANG_VERSION="18"
 ICU_VERSION="77.1"
 ICU_MAJ_VER="77"
@@ -37,7 +38,6 @@ CLEAN_BUILD=0
 VERBOSE_TESTS=0
 IGNORE_COMPILER_VERSION=0
 BUILD_CLANG=1
-BUILD_GCC=1
 BUILD_MINGW32=1
 BUILD_WASM32=1
 BUILD_LLVMIR=1
@@ -79,7 +79,7 @@ for arg in "$@"; do
   case "$arg" in
     --ignore-compiler-version) IGNORE_COMPILER_VERSION=1 ;;
     --quick)
-      BUILD_CLANG=1; BUILD_GCC=0; BUILD_MINGW32=0; BUILD_WASM32=0; BUILD_LLVMIR=0 ;;
+      BUILD_CLANG=1; BUILD_MINGW32=0; BUILD_WASM32=0; BUILD_LLVMIR=0 ;;
     --clean)
       print_section "Cleaning build output"; ./clean.sh ;;
   esac
@@ -187,7 +187,7 @@ build_icu() {
 
   ICU_SOURCE="$WORKDIR/icu/source"
   local ENABLE_TOOLS="--disable-tools"
-  [[ "$TARGET" == "$LINUX_CLANG_TARGET" || "$TARGET" == "$LINUX_GCC_TARGET" ]] && ENABLE_TOOLS="--enable-tools"
+  [[ "$TARGET" == "$LINUX_CLANG_TARGET" ]] && ENABLE_TOOLS="--enable-tools"
 
   EXTRA_CFLAGS=""; EXTRA_CXXFLAGS=""
   [[ "$CC" == "clang" ]] && EXTRA_CFLAGS="-O2" && EXTRA_CXXFLAGS="-O2"
@@ -310,12 +310,6 @@ if [[ $BUILD_CLANG -eq 1 ]]; then
   fi
 fi
 
-if [[ $BUILD_GCC -eq 1 ]]; then
-  ACTUAL_GCC_VERSION=$(gcc -dumpversion)
-  LINUX_GCC_TARGET="linux-x86_64-gcc-${ACTUAL_GCC_VERSION%%.*}"
-  build_icu "$LINUX_GCC_TARGET" "" gcc g++ ar ranlib
-fi
-
 if [[ $BUILD_MINGW32 -eq 1 ]]; then
   print_section "Build MINGW32"
   MINGW_GCC_VERSION=$(x86_64-w64-mingw32-gcc -dumpversion || echo "unknown")
@@ -326,7 +320,7 @@ if [[ $BUILD_MINGW32 -eq 1 ]]; then
     x86_64-w64-mingw32-g++ \
     x86_64-w64-mingw32-ar \
     x86_64-w64-mingw32-ranlib \
-    "--with-cross-build=$WORKDIR/build-$LINUX_GCC_TARGET"
+    "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET"
 fi
 
 if [[ $BUILD_WASM32 -eq 1 ]]; then
@@ -343,8 +337,8 @@ if [[ $BUILD_WASM32 -eq 1 ]]; then
 
   source "$EMSDK/emsdk_env.sh"
   cp "$WORKDIR/icu/source/config/mh-linux" "$WORKDIR/icu/source/config/mh-unknown"
-  build_icu "wasm32" wasm32 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_GCC_TARGET"
-  build_icu "wasm64" wasm64 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_GCC_TARGET"
+  build_icu "wasm32" wasm32 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET"
+  build_icu "wasm64" wasm64 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET"
   build_wasm_llvm_ir_variant
 fi
 
