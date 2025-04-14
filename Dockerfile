@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     clang-18 \
     cmake \
+    coreutils \
     flex \
     g++-multilib \
     gcc-multilib \

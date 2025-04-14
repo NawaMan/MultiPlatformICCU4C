@@ -4,6 +4,8 @@
 # Platforms: linux-x86_64-gcc-13, linux-x86_64-clang-18, windows-x86_64-gcc-13, wasm32 (Emscripten)
 
 set -e
+set -x
+set -o pipefail
 
 if [[ "$1" == "--help" ]]; then
   echo -e "\033[1;33mUsage:\033[0m $0 [options]\n"
@@ -28,10 +30,41 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-print() { echo "$@"; }
-print_section() { echo -e "\n${YELLOW}=== $1 ===${NC}\n"; }
-print_status() { echo -e "${BLUE}$1${NC}"; }
-exit_with_error() { echo -e "${RED}❌ ERROR: $1${NC}"; exit 1; }
+
+
+WORKDIR=$(pwd)/build
+DISTDIR=$(pwd)/dist
+mkdir -p "$WORKDIR" "$DISTDIR"
+chmod -R ugo+rwx "$DISTDIR"
+cd "$WORKDIR"
+
+BUILDLOG="$DISTDIR/build.log"
+
+
+
+print() {
+    echo "$@" | tee -a "$BUILDLOG"
+}
+print_section() {
+    echo -e "\n${YELLOW}=== $1 ===${NC}\n"
+
+    echo ""           >> "$BUILDLOG"
+    echo "=== $1 ===" >> "$BUILDLOG"
+    echo ""           >> "$BUILDLOG"
+}
+print_status() {
+    echo -e "\n${BLUE}$1${NC}"
+
+    echo ""   >> "$BUILDLOG"
+    echo "$1" >> "$BUILDLOG"
+}
+exit_with_error() {
+    echo -e "${RED}ERROR: $1${NC}"
+
+    echo "ERROR: $1" >> "$BUILDLOG"
+    exit 1
+}
+
 
 BUILD_TESTS="ON"
 ENABLE_COVERAGE="OFF"
@@ -54,18 +87,17 @@ for arg in "$@"; do
   esac
 done
 
+
+
 ICU_URL="https://github.com/unicode-org/icu/releases/download/release-${ICU_VERSION//./-}/icu4c-${ICU_VERSION//./_}-src.tgz"
-WORKDIR=$(pwd)/build
-DISTDIR=$(pwd)/dist
-mkdir -p "$WORKDIR" "$DISTDIR"
-chmod -R ugo+rwx "$DISTDIR"
-cd "$WORKDIR"
+
+
 
 print_section "Prepare ICU"
 ICU4C_FILE=icu4c.tgz
 if [ ! -f "$ICU4C_FILE" ]; then
   print "Downloading ICU4C..."
-  wget -O $ICU4C_FILE "$ICU_URL"
+  wget -nv -O $ICU4C_FILE "$ICU_URL"
 fi
 
 rm -rf icu
@@ -78,6 +110,110 @@ if [[ $BUILD_CLANG -eq 1 && $IGNORE_COMPILER_VERSION -eq 0 ]]; then
   [[ $ACTUAL_CLANG_VERSION != $REQUIRED_CLANG_VERSION* ]] && exit_with_error "Clang version $REQUIRED_CLANG_VERSION.x required, found $ACTUAL_CLANG_VERSION."
 fi
 LINUX_CLANG_TARGET="linux-x86_64-clang-${ACTUAL_CLANG_VERSION%%.*}"
+
+
+
+build_wasm_llvm_ir_variant() {
+  for BITNESS in 32 64; do
+    local TARGET="wasm${BITNESS}"
+    local LLVM_IR_DIR="$DISTDIR/llvm-ir-${ACTUAL_CLANG_VERSION%%.*}/$TARGET"
+    local LLVM_BC_DIR="$DISTDIR/llvm-bc-${ACTUAL_CLANG_VERSION%%.*}/$TARGET"
+    mkdir -p "$LLVM_IR_DIR" "$LLVM_BC_DIR"
+
+    print_section "Generating LLVM IR/BC files for WebAssembly (${TARGET})"
+
+    find "$ICU_SOURCE" -name '*.cpp' \
+      ! -path '*/samples/*' \
+      ! -path '*/test/*' \
+      ! -path '*/perf/*' \
+      ! -path '*/tools/*' \
+      | while read -r cppfile; do
+
+      relpath=$(realpath --relative-to="$ICU_SOURCE" "$cppfile")
+      if grep -q 'LETypes.h' "$cppfile"; then
+        print "⚠️  Skipping $relpath (LETypes.h)"
+        continue
+      fi
+
+      mkdir -p "$LLVM_IR_DIR/$(dirname "$relpath")"
+      mkdir -p "$LLVM_BC_DIR/$(dirname "$relpath")"
+
+      macro=""
+      case "$cppfile" in
+        */common/*)   macro="-DU_COMMON_IMPLEMENTATION" ;; 
+        */i18n/*)     macro="-DU_I18N_IMPLEMENTATION" ;; 
+        */layoutex/*) macro="-DU_LAYOUTEX_IMPLEMENTATION" ;; 
+        */io/*)       macro="-DU_IO_IMPLEMENTATION" ;; 
+      esac
+
+      em_target="wasm${BITNESS}-unknown-emscripten"
+      echo "em_target: $em_target"
+
+      echo em++ -std=c++23 -S -emit-llvm -target $em_target $macro \
+        -I"$ICU_SOURCE" -I"$ICU_SOURCE/common" -I"$ICU_SOURCE/i18n" \
+        -I"$ICU_SOURCE/layoutex" -I"$ICU_SOURCE/layout" -I"$ICU_SOURCE/io" \
+        "$cppfile" \
+        -o "$LLVM_IR_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).ll" || exit_with_error "Failed IR: $relpath" \
+        >> "$BUILDLOG" 2>&1
+
+      echo em++ -std=c++23 -c -emit-llvm -O2 -target $em_target $macro \
+        -I"$ICU_SOURCE" -I"$ICU_SOURCE/common" -I"$ICU_SOURCE/i18n" \
+        -I"$ICU_SOURCE/layoutex" -I"$ICU_SOURCE/layout" -I"$ICU_SOURCE/io" \
+        "$cppfile" \
+        -o "$LLVM_BC_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).bc" || exit_with_error "Failed BC: $relpath" \
+        >> "$BUILDLOG" 2>&1
+    done
+
+    echo build_llvm_kit_zip "$TARGET" "$LLVM_IR_DIR" "$LLVM_BC_DIR"
+  done
+}
+
+
+
+build_icu() {
+  TARGET="$1"; HOST="$2"; CC="$3"; CXX="$4"; AR="$5"; RANLIB="$6"; EXTRA_FLAGS="$7"
+  print_section "Build ICU for $TARGET"
+
+  BUILD_DIR="$WORKDIR/build-$TARGET"
+  INSTALL_DIR="$DISTDIR/$TARGET"
+  ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}-$TARGET.zip"
+
+  rm    -rf "$BUILD_DIR" "$INSTALL_DIR"
+  mkdir -p  "$BUILD_DIR" "$INSTALL_DIR/bin" "$INSTALL_DIR/lib" "$INSTALL_DIR/include"
+  cd "$BUILD_DIR"
+
+  ICU_SOURCE="$WORKDIR/icu/source"
+  local ENABLE_TOOLS="--disable-tools"
+  [[ "$TARGET" == "$LINUX_CLANG_TARGET" || "$TARGET" == "$LINUX_GCC_TARGET" ]] && ENABLE_TOOLS="--enable-tools"
+
+  EXTRA_CFLAGS=""; EXTRA_CXXFLAGS=""
+  [[ "$CC" == "clang" ]] && EXTRA_CFLAGS="-O2" && EXTRA_CXXFLAGS="-O2"
+
+  PKG_CONFIG_LIBDIR=                                \
+  CC="$CC" CXX="$CXX" AR="$AR" RANLIB="$RANLIB"     \
+  CFLAGS="$EXTRA_CFLAGS" CXXFLAGS="$EXTRA_CXXFLAGS" \
+  "$ICU_SOURCE/configure"        \
+    --prefix="$INSTALL_DIR"      \
+    --host="$HOST"               \
+    --enable-static              \
+    --disable-shared             \
+    --with-data-packaging=static \
+    --disable-extras             \
+    --disable-tests              \
+    --disable-samples            \
+    $ENABLE_TOOLS                \
+    $EXTRA_FLAGS                 \
+    >> "$BUILDLOG" 2>&1
+
+  make -j$(nproc)   >> "$BUILDLOG" 2>&1
+  make install      >> "$BUILDLOG" 2>&1
+
+  zip -r "$ZIP_FILE" ./  >> "$BUILDLOG" 2>&1
+  print_status "✅ Created $ZIP_FILE"
+  chmod -R ugo+rwx "$DISTDIR"
+}
+
+
 
 build_llvm_ir_variant() {
   local BITNESS="$1"
@@ -92,9 +228,9 @@ build_llvm_ir_variant() {
 
   find "$ICU_SOURCE" -name '*.cpp' \
     ! -path '*/samples/*' \
-    ! -path '*/test/*' \
-    ! -path '*/perf/*' \
-    ! -path '*/tools/*' \
+    ! -path '*/test/*'    \
+    ! -path '*/perf/*'    \
+    ! -path '*/tools/*'   \
     | while read -r cppfile; do
 
     relpath=$(realpath --relative-to="$ICU_SOURCE" "$cppfile")
@@ -108,32 +244,32 @@ build_llvm_ir_variant() {
 
     macro=""
     case "$cppfile" in
-      */common/*)   macro="-DU_COMMON_IMPLEMENTATION" ;;
-      */i18n/*)     macro="-DU_I18N_IMPLEMENTATION" ;;
+      */common/*)   macro="-DU_COMMON_IMPLEMENTATION"   ;;
+      */i18n/*)     macro="-DU_I18N_IMPLEMENTATION"     ;;
       */layoutex/*) macro="-DU_LAYOUTEX_IMPLEMENTATION" ;;
-      */io/*)       macro="-DU_IO_IMPLEMENTATION" ;;
+      */io/*)       macro="-DU_IO_IMPLEMENTATION"       ;;
     esac
 
     clang -std=c++23 -S -emit-llvm $CFLAGS $macro \
-      -I"$ICU_SOURCE" \
-      -I"$ICU_SOURCE/common" \
-      -I"$ICU_SOURCE/i18n" \
+      -I"$ICU_SOURCE"          \
+      -I"$ICU_SOURCE/common"   \
+      -I"$ICU_SOURCE/i18n"     \
       -I"$ICU_SOURCE/layoutex" \
-      -I"$ICU_SOURCE/layout" \
-      -I"$ICU_SOURCE/io" \
-      "$cppfile" \
-      -o "$LLVM_IR_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).ll" \
+      -I"$ICU_SOURCE/layout"   \
+      -I"$ICU_SOURCE/io"       \
+      "$cppfile"               \
+      -o "$LLVM_IR_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).ll" >> "$BUILDLOG" 2>&1 \
       || exit_with_error "Failed IR: $relpath"
 
     clang -std=c++23 -c -emit-llvm -O2 $CFLAGS $macro \
-      -I"$ICU_SOURCE" \
-      -I"$ICU_SOURCE/common" \
-      -I"$ICU_SOURCE/i18n" \
+      -I"$ICU_SOURCE"          \
+      -I"$ICU_SOURCE/common"   \
+      -I"$ICU_SOURCE/i18n"     \
       -I"$ICU_SOURCE/layoutex" \
-      -I"$ICU_SOURCE/layout" \
-      -I"$ICU_SOURCE/io" \
-      "$cppfile" \
-      -o "$LLVM_BC_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).bc" \
+      -I"$ICU_SOURCE/layout"   \
+      -I"$ICU_SOURCE/io"       \
+      "$cppfile"               \
+      -o "$LLVM_BC_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).bc" >> "$BUILDLOG" 2>&1 \
       || exit_with_error "Failed BC: $relpath"
   done
 
@@ -155,135 +291,23 @@ build_llvm_ir_variant() {
 
   # Create zip
   ZIP_OUT="$DISTDIR/icu4c-${ICU_VERSION}-llvm-kit-${BITNESS}.zip"
-  (cd "$LLVM_KIT_DIR" && zip -r "$ZIP_OUT" .)
+  zip -r "$ZIP_OUT" . >> "$BUILDLOG" 2>&1
 
   print_status "✅ Created full LLVM kit zip ($BITNESS-bit): $ZIP_OUT"
 }
 
 
-# Add support for wasm64
-build_wasm_llvm_ir_variant() {
-  local TARGET="wasm64"
-  local LLVM_IR_DIR="$DISTDIR/llvm-ir-${ACTUAL_CLANG_VERSION%%.*}/wasm64"
-  local LLVM_BC_DIR="$DISTDIR/llvm-bc-${ACTUAL_CLANG_VERSION%%.*}/wasm64"
-  mkdir -p "$LLVM_IR_DIR" "$LLVM_BC_DIR"
 
-  print_section "Generating LLVM IR/BC files for WebAssembly (wasm64)"
+if [[ $BUILD_CLANG -eq 1 ]]; then
+  build_icu "$LINUX_CLANG_TARGET" "" clang clang++ llvm-ar llvm-ranlib
 
-  find "$ICU_SOURCE" -name '*.cpp' \
-    ! -path '*/samples/*' \
-    ! -path '*/test/*' \
-    ! -path '*/perf/*' \
-    ! -path '*/tools/*' \
-    | while read -r cppfile; do
-
-    relpath=$(realpath --relative-to="$ICU_SOURCE" "$cppfile")
-    if grep -q 'LETypes.h' "$cppfile"; then
-      print "⚠️  Skipping $relpath (LETypes.h)"
-      continue
-    fi
-
-    mkdir -p "$LLVM_IR_DIR/$(dirname "$relpath")"
-    mkdir -p "$LLVM_BC_DIR/$(dirname "$relpath")"
-
-    macro=""
-    case "$cppfile" in
-      */common/*)   macro="-DU_COMMON_IMPLEMENTATION" ;; 
-      */i18n/*)     macro="-DU_I18N_IMPLEMENTATION" ;; 
-      */layoutex/*) macro="-DU_LAYOUTEX_IMPLEMENTATION" ;; 
-      */io/*)       macro="-DU_IO_IMPLEMENTATION" ;; 
-    esac
-
-    em++ -std=c++23 -S -emit-llvm -target wasm64-unknown-unknown-wasm $macro \
-      -I"$ICU_SOURCE" -I"$ICU_SOURCE/common" -I"$ICU_SOURCE/i18n" \
-      -I"$ICU_SOURCE/layoutex" -I"$ICU_SOURCE/layout" -I"$ICU_SOURCE/io" \
-      "$cppfile" \
-      -o "$LLVM_IR_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).ll" || exit_with_error "Failed IR: $relpath"
-
-    em++ -std=c++23 -c -emit-llvm -O2 -target wasm64-unknown-unknown-wasm $macro \
-      -I"$ICU_SOURCE" -I"$ICU_SOURCE/common" -I"$ICU_SOURCE/i18n" \
-      -I"$ICU_SOURCE/layoutex" -I"$ICU_SOURCE/layout" -I"$ICU_SOURCE/io" \
-      "$cppfile" \
-      -o "$LLVM_BC_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).bc" || exit_with_error "Failed BC: $relpath"
-  done
-
-  # Assemble devkit
-  LLVM_KIT_DIR="$DISTDIR/llvm-kit-${ACTUAL_CLANG_VERSION%%.*}-wasm64"
-  mkdir -p "$LLVM_KIT_DIR/llvm-ir" "$LLVM_KIT_DIR/llvm-bc"
-  rsync -a "$LLVM_IR_DIR/" "$LLVM_KIT_DIR/llvm-ir/"
-  rsync -a "$LLVM_BC_DIR/" "$LLVM_KIT_DIR/llvm-bc/"
-  rsync -a "$DISTDIR/$LINUX_CLANG_TARGET/include/" "$LLVM_KIT_DIR/include/"
-
-  # Add helper scripts
-  KIT_FILES="$WORKDIR/../artifacts/llvm-devkit"
-  if [ -f "$KIT_FILES/build-lib-from-llvm.sh" ]; then
-    cp "$KIT_FILES/build-lib-from-llvm.sh" "$LLVM_KIT_DIR/"
-  fi
-  if [ -f "$KIT_FILES/README.md" ]; then
-    cp "$KIT_FILES/README.md" "$LLVM_KIT_DIR/"
-  fi
-
-  # Create zip
-  ZIP_OUT="$DISTDIR/icu4c-${ICU_VERSION}-llvm-kit-wasm64.zip"
-  (cd "$LLVM_KIT_DIR" && zip -r "$ZIP_OUT" .)
-  print_status "✅ Created full LLVM kit zip (wasm64): $ZIP_OUT"
-}
-
-
-build_icu() {
-  TARGET="$1"; HOST="$2"; CC="$3"; CXX="$4"; AR="$5"; RANLIB="$6"; EXTRA_FLAGS="$7"
-  print_section "Build ICU for $TARGET"
-
-  BUILD_DIR="$WORKDIR/build-$TARGET"
-  INSTALL_DIR="$DISTDIR/$TARGET"
-  ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}-$TARGET.zip"
-
-  rm -rf "$BUILD_DIR" "$INSTALL_DIR"
-  mkdir -p "$BUILD_DIR" "$INSTALL_DIR/bin" "$INSTALL_DIR/lib" "$INSTALL_DIR/include"
-  cd "$BUILD_DIR"
-
-  ICU_SOURCE="$WORKDIR/icu/source"
-  local ENABLE_TOOLS="--disable-tools"
-  [[ "$TARGET" == "$LINUX_CLANG_TARGET" || "$TARGET" == "$LINUX_GCC_TARGET" ]] && ENABLE_TOOLS="--enable-tools"
-
-  EXTRA_CFLAGS=""; EXTRA_CXXFLAGS=""
-  [[ "$CC" == "clang" ]] && EXTRA_CFLAGS="-O2" && EXTRA_CXXFLAGS="-O2"
-
-  PKG_CONFIG_LIBDIR= \
-  CC="$CC" CXX="$CXX" AR="$AR" RANLIB="$RANLIB" \
-  CFLAGS="$EXTRA_CFLAGS" CXXFLAGS="$EXTRA_CXXFLAGS" \
-  "$ICU_SOURCE/configure" \
-    --prefix="$INSTALL_DIR" \
-    --host="$HOST" \
-    --enable-static \
-    --disable-shared \
-    --with-data-packaging=static \
-    --disable-extras \
-    --disable-tests \
-    --disable-samples \
-    $ENABLE_TOOLS \
-    $EXTRA_FLAGS
-
-  make -j$(nproc)
-  make install
-
-  (cd "$INSTALL_DIR" && zip -r "$ZIP_FILE" ./)
-  print_status "✅ Created $ZIP_FILE"
-  chmod -R ugo+rwx "$DISTDIR"
-
-  if [[ "$CC" == "clang" && "$BUILD_LLVMIR" == "1" ]]; then
+  if [[ "$BUILD_LLVMIR" == "1" ]]; then
     build_llvm_ir_variant 64
     build_llvm_ir_variant 32
   fi
-}
-
-if [[ $BUILD_CLANG -eq 1 ]]; then
-  print_section "Build CLANG"
-  build_icu "$LINUX_CLANG_TARGET" "" clang clang++ llvm-ar llvm-ranlib
 fi
 
 if [[ $BUILD_GCC -eq 1 ]]; then
-  print_section "Build GCC"
   ACTUAL_GCC_VERSION=$(gcc -dumpversion)
   LINUX_GCC_TARGET="linux-x86_64-gcc-${ACTUAL_GCC_VERSION%%.*}"
   build_icu "$LINUX_GCC_TARGET" "" gcc g++ ar ranlib
@@ -310,8 +334,8 @@ if [[ $BUILD_WASM32 -eq 1 ]]; then
   cd emsdk
   EMSDK=$(pwd)
   git checkout $ENSDK_VERSION
-  ./emsdk install latest
-  ./emsdk activate latest
+  ./emsdk install latest    >> "$BUILDLOG" 2>&1
+  ./emsdk activate latest   >> "$BUILDLOG" 2>&1
   cd -
 
   source "$EMSDK/emsdk_env.sh"
@@ -321,6 +345,4 @@ if [[ $BUILD_WASM32 -eq 1 ]]; then
   build_wasm_llvm_ir_variant
 fi
 
-print_status "✅ ICU build complete. Output in: $DISTDIR"
-print_status "Built directories:"; ls -l "$DISTDIR/"*/
-print_status "Zip archives:"; ls -lh "$DISTDIR"/*.zip
+print_status "✅ ICU build is all complete."
