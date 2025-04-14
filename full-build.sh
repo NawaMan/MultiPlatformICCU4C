@@ -40,17 +40,38 @@ exit_with_error() {
     exit 1
 }
 
-# Create icu-dist directory if it doesn't exist
+
+
+# Create the folder
 mkdir -p $(pwd)/$DISTDIR
 
+# Set group to your current group
+chown -R $(id -u):$(id -gn) $(pwd)/$DISTDIR
+
+# Enable group inheritance (setgid)
+chmod g+s $(pwd)/$DISTDIR
+
+# Ensure permissions are inherited by default (ACL)
+setfacl -d -m g:$(id -gn):rwx $(pwd)/$DISTDIR
+setfacl    -m g:$(id -gn):rwx $(pwd)/$DISTDIR
+
+
+
+# Prepare (create or reset) the log file.
 touch     "$BUILDLOG"
 echo "" > "$BUILDLOG"
+
+
 
 # Build the Docker image
 docker build . -t icu4c-builder
 
-# Run the container with volume mapping for icu-dist
-docker run --rm -v $(pwd)/$DISTDIR:/app/$DISTDIR icu4c-builder:latest
+
+
+# Run the container with volume mapping for dist
+docker run --rm -v "$(pwd)/$DISTDIR:/app/$DISTDIR" icu4c-builder:latest
+
+
 
 # Done
 print_section "Done!"
@@ -66,5 +87,3 @@ ls -l "$DISTDIR"/*.zip  | tee -a "$BUILDLOG"
 
 print_status "Detail build log can be found at: "
 print $BUILDLOG
-
-chmod ugo+rwx $(pwd)/$DISTDIR

@@ -37,10 +37,10 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-    # Create symlinks for clang-18 and LLVM tools to be available without version suffix
-RUN update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 100 \
+# Create symlinks for clang-18 and LLVM tools to be available without version suffix
+RUN update-alternatives    --install /usr/bin/clang clang     /usr/bin/clang-18   100 \
     && update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100 \
-    && ln -sf /usr/bin/llvm-ar-18 /usr/bin/llvm-ar \
+    && ln -sf /usr/bin/llvm-ar-18     /usr/bin/llvm-ar                                \
     && ln -sf /usr/bin/llvm-ranlib-18 /usr/bin/llvm-ranlib
 
 # Set up working directory
@@ -52,9 +52,6 @@ COPY artifacts /app/artifacts
 
 # Make the script executable
 RUN chmod +x /app/build.sh
-
-# Create the icu-dist directory
-RUN mkdir -p /app/dist
 
 # Set the entrypoint to the build script
 ENTRYPOINT ["/bin/bash", "/app/build.sh"]

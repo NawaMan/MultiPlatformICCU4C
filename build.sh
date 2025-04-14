@@ -4,7 +4,7 @@
 # Platforms: linux-x86_64-gcc-13, linux-x86_64-clang-18, windows-x86_64-gcc-13, wasm32 (Emscripten)
 
 set -e
-set -x
+# set -x
 set -o pipefail
 
 if [[ "$1" == "--help" ]]; then
@@ -31,15 +31,23 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 
+BUILD_TESTS="ON"
+ENABLE_COVERAGE="OFF"
+CLEAN_BUILD=0
+VERBOSE_TESTS=0
+IGNORE_COMPILER_VERSION=0
+BUILD_CLANG=1
+BUILD_GCC=1
+BUILD_MINGW32=1
+BUILD_WASM32=1
+BUILD_LLVMIR=1
+
+
 
 WORKDIR=$(pwd)/build
 DISTDIR=$(pwd)/dist
-mkdir -p "$WORKDIR" "$DISTDIR"
-chmod -R ugo+rwx "$DISTDIR"
-cd "$WORKDIR"
 
 BUILDLOG="$DISTDIR/build.log"
-
 
 
 print() {
@@ -66,16 +74,6 @@ exit_with_error() {
 }
 
 
-BUILD_TESTS="ON"
-ENABLE_COVERAGE="OFF"
-CLEAN_BUILD=0
-VERBOSE_TESTS=0
-IGNORE_COMPILER_VERSION=0
-BUILD_CLANG=1
-BUILD_GCC=1
-BUILD_MINGW32=1
-BUILD_WASM32=1
-BUILD_LLVMIR=1
 
 for arg in "$@"; do
   case "$arg" in
@@ -86,6 +84,12 @@ for arg in "$@"; do
       print_section "Cleaning build output"; ./clean.sh ;;
   esac
 done
+
+
+
+mkdir -p "$WORKDIR" "$DISTDIR"
+chmod -R ugo+rwx "$DISTDIR"
+cd "$WORKDIR"
 
 
 
@@ -147,24 +151,23 @@ build_wasm_llvm_ir_variant() {
       esac
 
       em_target="wasm${BITNESS}-unknown-emscripten"
-      echo "em_target: $em_target"
 
-      echo em++ -std=c++23 -S -emit-llvm -target $em_target $macro \
+      em++ -std=c++23 -S -emit-llvm -target $em_target $macro \
         -I"$ICU_SOURCE" -I"$ICU_SOURCE/common" -I"$ICU_SOURCE/i18n" \
         -I"$ICU_SOURCE/layoutex" -I"$ICU_SOURCE/layout" -I"$ICU_SOURCE/io" \
         "$cppfile" \
-        -o "$LLVM_IR_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).ll" || exit_with_error "Failed IR: $relpath" \
-        >> "$BUILDLOG" 2>&1
+        -o "$LLVM_IR_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).ll" \
+        >> "$BUILDLOG" 2>&1 \
+        || exit_with_error "Failed IR: $relpath"
 
-      echo em++ -std=c++23 -c -emit-llvm -O2 -target $em_target $macro \
+      em++ -std=c++23 -c -emit-llvm -O2 -target $em_target $macro \
         -I"$ICU_SOURCE" -I"$ICU_SOURCE/common" -I"$ICU_SOURCE/i18n" \
         -I"$ICU_SOURCE/layoutex" -I"$ICU_SOURCE/layout" -I"$ICU_SOURCE/io" \
         "$cppfile" \
-        -o "$LLVM_BC_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).bc" || exit_with_error "Failed BC: $relpath" \
-        >> "$BUILDLOG" 2>&1
+        -o "$LLVM_BC_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).bc" \
+        >> "$BUILDLOG" 2>&1 \
+        || exit_with_error "Failed BC: $relpath"
     done
-
-    echo build_llvm_kit_zip "$TARGET" "$LLVM_IR_DIR" "$LLVM_BC_DIR"
   done
 }
 
