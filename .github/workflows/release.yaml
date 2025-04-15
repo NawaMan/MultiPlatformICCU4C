@@ -1,0 +1,137 @@
+name: Release (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (optional, will use version.txt if not provided)'
+        required: false
+        type: string
+
+jobs:
+  release:
+    name: Build & Publish Release
+    runs-on: ubuntu-22.04
+    outputs:
+      is_release: ${{ steps.get_version.outputs.is_release }}
+      version: ${{ steps.get_version.outputs.version }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get Version Info
+        id: get_version
+        run: |
+          if [ ! -z "${{ github.event.inputs.version }}" ]; then
+            echo "is_release=true"                            >> "$GITHUB_OUTPUT"
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          elif [ -f version.txt ]; then
+            version=$(cat version.txt)
+            echo "is_release=true"  >> "$GITHUB_OUTPUT"
+            echo "version=$version" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+            echo "version=dev"      >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Release Packages
+        run: |
+          VERSION_ARG=""
+          if [ ! -z "${{ github.event.inputs.version }}" ]; then
+            VERSION_ARG="-v ${{ github.event.inputs.version }}"
+          fi
+          
+          echo "Building with arguments: $VERSION_ARG"
+          ./full-build.sh $VERSION_ARG
+
+      - name: Upload Release Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-packages
+          path: dist/*.zip
+          if-no-files-found: error
+
+  publish:
+    needs: [release]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    if: needs.release.outputs.is_release == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Release Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-packages
+          path: dist
+
+      - name: Get version and check branch
+        id: get_version
+        run: |
+          # Get base version
+          if [ ! -z "${{ github.event.inputs.version }}" ]; then
+            BASE_VERSION="${{ github.event.inputs.version }}"
+          else
+            BASE_VERSION="$(cat version.txt)"
+          fi
+          
+          # Check if we're on a release branch
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          if [[ "$CURRENT_BRANCH" != "release" ]]; then
+            echo "is_release=false" >> $GITHUB_OUTPUT
+            echo "version=${BASE_VERSION}-snapshot" >> $GITHUB_OUTPUT
+          else
+            echo "is_release=true" >> $GITHUB_OUTPUT
+            echo "version=${BASE_VERSION}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get Changelog Entry
+        id: get_changelog
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          # Strip -snapshot suffix for changelog lookup
+          CHANGELOG_VERSION="${VERSION%-snapshot}"
+          # Extract the section for current version from CHANGELOG.md
+          awk -v ver="$CHANGELOG_VERSION" '
+          BEGIN { found=0 }
+          $0 ~ ("^## \\[" ver "\\]") {
+            found=1
+            p=1
+            print
+            next
+          }
+          $0 ~ /^## \[/ {
+            p=0
+          }
+          p {
+            print
+          }
+          END {
+            exit !found
+          }' CHANGELOG.md > release_notes.md || {
+            echo "Error: No changelog entry found for version $CHANGELOG_VERSION"
+            echo "Please add an entry to CHANGELOG.md in the format:"
+            echo "Error: Please add an entry to CHANGELOG.md with this format:"
+            echo "## [$CHANGELOG_VERSION]"
+            echo "- Your changes here"
+            exit 1
+          }
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "Release v${{ steps.get_version.outputs.version }}"
+          tag_name: "v${{ steps.get_version.outputs.version }}"
+          draft: false
+          prerelease: false
+          files: dist/*
+          body_path: release_notes.md
+          generate_release_notes: false

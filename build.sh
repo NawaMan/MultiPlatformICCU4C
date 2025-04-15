@@ -19,7 +19,7 @@ if [[ "$1" == "--help" ]]; then
   exit 0
 fi
 
-REQUIRED_CLANG_VERSION="18"
+CLANG_VERSION="18"
 ICU_VERSION="77.1"
 ICU_MAJ_VER="77"
 ENSDK_VERSION="4.0.6"
@@ -111,7 +111,7 @@ tar -xzf ../$ICU4C_FILE --strip-components=1
 
 ACTUAL_CLANG_VERSION=$(clang --version | grep -o 'clang version [0-9]\+' | awk '{print $3}')
 if [[ $BUILD_CLANG -eq 1 && $IGNORE_COMPILER_VERSION -eq 0 ]]; then
-  [[ $ACTUAL_CLANG_VERSION != $REQUIRED_CLANG_VERSION* ]] && exit_with_error "Clang version $REQUIRED_CLANG_VERSION.x required, found $ACTUAL_CLANG_VERSION."
+  [[ $ACTUAL_CLANG_VERSION != $CLANG_VERSION* ]] && exit_with_error "Clang version $CLANG_VERSION.x required, found $ACTUAL_CLANG_VERSION."
 fi
 LINUX_CLANG_TARGET_32="linux-x86_32-clang-${ACTUAL_CLANG_VERSION%%.*}"
 LINUX_CLANG_TARGET_64="linux-x86_64-clang-${ACTUAL_CLANG_VERSION%%.*}"
