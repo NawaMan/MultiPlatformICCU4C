@@ -311,16 +311,26 @@ if [[ $BUILD_CLANG -eq 1 ]]; then
 fi
 
 if [[ $BUILD_MINGW32 -eq 1 ]]; then
-  print_section "Build MINGW32"
-  MINGW_GCC_VERSION=$(x86_64-w64-mingw32-gcc -dumpversion || echo "unknown")
-  WINDOWS_TARGET="windows-x86_64-gcc-${MINGW_GCC_VERSION%%.*}"
-  build_icu "$WINDOWS_TARGET" \
+  print_section "Build ICU for Windows"
+
+  WINDOWS_CLANG_TARGET_64="windows-x86_64-clang-${ACTUAL_CLANG_VERSION%%.*}"
+  WINDOWS_CLANG_TARGET_32="windows-x86-32-clang-${ACTUAL_CLANG_VERSION%%.*}"
+
+  build_icu "$WINDOWS_CLANG_TARGET_64" \
     x86_64-w64-mingw32 \
-    x86_64-w64-mingw32-gcc \
-    x86_64-w64-mingw32-g++ \
-    x86_64-w64-mingw32-ar \
-    x86_64-w64-mingw32-ranlib \
-    "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_64"
+    "clang --target=x86_64-w64-windows-gnu" \
+    "clang++ --target=x86_64-w64-windows-gnu" \
+    llvm-ar llvm-ranlib \
+    "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_64" \
+    "-O2" "-O2"
+
+  build_icu "$WINDOWS_CLANG_TARGET_32" \
+    i686-w64-mingw32 \
+    "clang --target=i686-w64-windows-gnu" \
+    "clang++ --target=i686-w64-windows-gnu" \
+    llvm-ar llvm-ranlib \
+    "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_64" \
+    "-O2" "-O2"
 fi
 
 if [[ $BUILD_WASM -eq 1 ]]; then

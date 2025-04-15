@@ -11,6 +11,7 @@ RUN dpkg --add-architecture i386 && \
 RUN apt-get update && apt-get install -y \
     autoconf \
     automake \
+    binutils-mingw-w64 \
     bison \
     build-essential \
     clang-18 \
@@ -18,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     coreutils \
     flex \
     g++-multilib \
+    g++-mingw-w64 \
     gcc-multilib \
     git \
     libc++-18-dev \
