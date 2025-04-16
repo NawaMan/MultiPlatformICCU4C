@@ -57,12 +57,41 @@ jobs:
           path: dist/*.zip
           if-no-files-found: error
 
+  macos:
+    name: macOS Build
+    runs-on: macos-latest
+    needs: release
+    if: needs.release.outputs.is_release == 'true'
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew update
+          brew install cmake ninja
+
+      - name: Build macOS Release
+        run: |
+          VERSION="${{ needs.release.outputs.version }}"
+          echo "Building macOS release for version $VERSION"
+          ./mac-build.sh "$VERSION" universal
+
+      - name: Upload macOS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-packages
+          path: dist/*-macos*.zip
+          if-no-files-found: error
+
   publish:
-    needs: [release]
+    needs: [release, macos]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
     if: needs.release.outputs.is_release == 'true'
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -119,7 +148,6 @@ jobs:
           }' CHANGELOG.md > release_notes.md || {
             echo "Error: No changelog entry found for version $CHANGELOG_VERSION"
             echo "Please add an entry to CHANGELOG.md in the format:"
-            echo "Error: Please add an entry to CHANGELOG.md with this format:"
             echo "## [$CHANGELOG_VERSION]"
             echo "- Your changes here"
             exit 1
