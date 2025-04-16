@@ -76,6 +76,11 @@ jobs:
         run: |
           VERSION="${{ needs.release.outputs.version }}"
           echo "Building macOS release for version $VERSION"
+          echo "pwd"
+          pwd
+          echo "ls -la"
+          ls -la
+          echo "./mac-build.sh "$VERSION" universal"
           ./mac-build.sh "$VERSION" universal
 
       - name: Upload macOS Artifacts
