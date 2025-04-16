@@ -70,8 +70,9 @@ jobs:
       - name: Install dependencies
         run: |
           brew update
-          brew install cmake ninja
-        
+          brew install cmake --formula
+          brew list ninja || brew install ninja
+
       - name: Prepare ICU source
         run: ./build.sh --prepare-only
 
