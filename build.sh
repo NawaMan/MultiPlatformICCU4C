@@ -12,17 +12,18 @@ set -o pipefail
 if [[ "$1" == "--help" ]]; then
   echo -e "\033[1;33mUsage:\033[0m $0 [options]\n"
   echo "Options:"
-  echo "  --quick                      Only build for Linux using Clang 18"
+  echo "  --quick                      Only build for Linux using Clang"
   echo "  --ignore-compiler-version    Skip compiler version checks"
   echo "  --clean                      Run clean.sh before building"
   echo "  --help                       Show this help message"
   exit 0
 fi
 
-CLANG_VERSION="18"
-ICU_VERSION="77.1"
-ICU_MAJ_VER="77"
-ENSDK_VERSION="4.0.6"
+
+CLANG_VERSION=18
+ICU_VERSION=77.1
+ENSDK_VERSION=4.0.6
+
 
 # Color output
 RED='\033[0;31m'
@@ -33,13 +34,10 @@ NC='\033[0m'
 
 
 PREPARE_ONLY=0
-BUILD_TESTS="ON"
-ENABLE_COVERAGE="OFF"
-CLEAN_BUILD=0
-VERBOSE_TESTS=0
 IGNORE_COMPILER_VERSION=0
+ICU_MAJ_VER="${ICU_VERSION%%.*}"
 BUILD_CLANG=1
-BUILD_MINGW32=1
+BUILD_WINDOWS=1
 BUILD_WASM=1
 BUILD_LLVMIR=1
 
@@ -81,7 +79,7 @@ for arg in "$@"; do
     --ignore-compiler-version)
       IGNORE_COMPILER_VERSION=1 ;;
     --quick)
-      BUILD_CLANG=1; BUILD_MINGW32=0; BUILD_WASM=0; BUILD_LLVMIR=0 ;;
+      BUILD_CLANG=1; BUILD_WINDOWS=0; BUILD_WASM=0; BUILD_LLVMIR=0 ;;
     --clean)
       print_section "Cleaning build output"; ./clean.sh ;;
     --prepare-only)
@@ -323,7 +321,7 @@ if [[ $BUILD_CLANG -eq 1 ]]; then
   fi
 fi
 
-if [[ $BUILD_MINGW32 -eq 1 ]]; then
+if [[ $BUILD_WINDOWS -eq 1 ]]; then
   print_section "Build ICU for Windows"
 
   WINDOWS_CLANG_TARGET_64="windows-x86_64-clang-${ACTUAL_CLANG_VERSION%%.*}"

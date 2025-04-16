@@ -46,7 +46,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create symlinks for clang-18 and LLVM tools to be available without version suffix
-RUN update-alternatives    --install /usr/bin/clang clang     /usr/bin/clang-18   100 \
+RUN update-alternatives    --install /usr/bin/clang   clang   /usr/bin/clang-18   100 \
     && update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100 \
     && ln -sf /usr/bin/llvm-ar-18     /usr/bin/llvm-ar                                \
     && ln -sf /usr/bin/llvm-ranlib-18 /usr/bin/llvm-ranlib
