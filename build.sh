@@ -32,6 +32,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 
+PREPARE_ONLY=0
 BUILD_TESTS="ON"
 ENABLE_COVERAGE="OFF"
 CLEAN_BUILD=0
@@ -77,11 +78,14 @@ exit_with_error() {
 
 for arg in "$@"; do
   case "$arg" in
-    --ignore-compiler-version) IGNORE_COMPILER_VERSION=1 ;;
+    --ignore-compiler-version)
+      IGNORE_COMPILER_VERSION=1 ;;
     --quick)
       BUILD_CLANG=1; BUILD_MINGW32=0; BUILD_WASM=0; BUILD_LLVMIR=0 ;;
     --clean)
       print_section "Cleaning build output"; ./clean.sh ;;
+    --prepare-only)
+      PREPARE_ONLY=1 ;;
   esac
 done
 
@@ -100,14 +104,23 @@ ICU_URL="https://github.com/unicode-org/icu/releases/download/release-${ICU_VERS
 print_section "Prepare ICU"
 ICU4C_FILE=icu4c.tgz
 if [ ! -f "$ICU4C_FILE" ]; then
-  print "Downloading ICU4C..."
+  print "📥 Downloading ICU4C..."
   wget -nv -O $ICU4C_FILE "$ICU_URL"
 fi
 
+print "📦 Extracting ICU..."
 rm -rf icu
 mkdir icu
 cd icu
 tar -xzf ../$ICU4C_FILE --strip-components=1
+
+print "✅ ICU is ready at $WORKDIR/icu"
+
+if [[ "$PREPARE_ONLY" -eq 1 ]]; then
+  print "✅ Prepare completed, ICU is ready at $WORKDIR/icu"
+  exit 0
+fi
+
 
 ACTUAL_CLANG_VERSION=$(clang --version | grep -o 'clang version [0-9]\+' | awk '{print $3}')
 if [[ $BUILD_CLANG -eq 1 && $IGNORE_COMPILER_VERSION -eq 0 ]]; then

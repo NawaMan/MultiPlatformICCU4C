@@ -71,6 +71,9 @@ jobs:
         run: |
           brew update
           brew install cmake ninja
+        
+      - name: Prepare ICU source
+        run: ./build.sh --prepare-only
 
       - name: Build macOS Release
         run: |
