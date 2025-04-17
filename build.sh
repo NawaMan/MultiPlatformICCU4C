@@ -160,7 +160,13 @@ build_icu() {
 
   BUILD_DIR="$WORKDIR/build-$TARGET"
   INSTALL_DIR="$DISTDIR/$TARGET"
-  ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}-$TARGET.zip"
+  # Determine toolchain tag for zip file
+if [[ "$TARGET" == wasm* ]]; then
+  TOOLCHAIN_TAG="ensdk${ENSDK_VERSION}"
+else
+  TOOLCHAIN_TAG="clang${CLANG_VERSION}"
+fi
+ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}-$TARGET-$TOOLCHAIN_TAG.zip"
 
   rm    -rf "$BUILD_DIR" "$INSTALL_DIR"
   mkdir -p  "$BUILD_DIR" "$INSTALL_DIR/bin" "$INSTALL_DIR/lib" "$INSTALL_DIR/include"
@@ -272,7 +278,7 @@ build_llvm_ir_variant() {
   fi
 
   # Create zip
-  ZIP_OUT="$DISTDIR/icu4c-${ICU_VERSION}-llvm-kit-${BITNESS}.zip"
+  ZIP_OUT="$DISTDIR/icu4c-${ICU_VERSION}-llvm-kit-${BITNESS}-clang${CLANG_VERSION}.zip"
   zip -r "$ZIP_OUT" . >> "$BUILDLOG" 2>&1
 
   print_status "✅ Created full LLVM kit zip ($BITNESS-bit): $ZIP_OUT"

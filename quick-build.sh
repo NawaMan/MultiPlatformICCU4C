@@ -8,7 +8,7 @@ DISTDIR=dist
 BUILDLOG="$DISTDIR/build.log"
 
 echo "==========================================================================="
-echo "\033[0;32m Detail build log can be found at: $BUILDLOG\033[0m"
+echo -e "\033[0;32mDetail build log can be found at: $BUILDLOG\033[0m"
 echo "==========================================================================="
 
 rm -Rf "$DISTDIR"

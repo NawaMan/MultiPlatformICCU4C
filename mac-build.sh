@@ -7,6 +7,15 @@ set -o pipefail
 WORKDIR=$(pwd)/build
 DISTDIR=$(pwd)/dist
 BUILDLOG="$DISTDIR/build.log"
+
+echo "==========================================================================="
+echo "\033[0;32m Detail build log can be found at: $BUILDLOG\033[0m"
+echo "==========================================================================="
+
+mkdir -p  "$WORKDIR"
+mkdir -p  "$DISTDIR"
+touch     "$BUILDLOG"
+echo "" > "$BUILDLOG"
 source common.source
 
 
@@ -91,7 +100,7 @@ merge_universal() {
 
   cp -r "$WORKDIR/x86_64/install/include" "$OUTDIR/"
 
-  ZIP_NAME="icu4c-${ICU_VERSION}-macos-universal.zip"
+  ZIP_NAME="icu4c-${ICU_VERSION}-macos-universal-clang${CLANG_VERSION}.zip"
   cd "$OUTDIR"
   zip -r "$DISTDIR/$ZIP_NAME" . > /dev/null
   echo "✅ Created: dist/$ZIP_NAME"
@@ -99,7 +108,7 @@ merge_universal() {
 
 package_single_arch() {
   ARCH_DIR="$WORKDIR/$1/install"
-  OUT_NAME="icu4c-${ICU_VERSION}-macos-$1.zip"
+  OUT_NAME="icu4c-${ICU_VERSION}-macos-$1-clang${CLANG_VERSION}.zip"
 
   cd "$ARCH_DIR"
   zip -r "$DISTDIR/$OUT_NAME" . > /dev/null
