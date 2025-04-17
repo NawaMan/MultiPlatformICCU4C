@@ -74,7 +74,20 @@ jobs:
           brew list ninja || brew install ninja
 
       - name: Prepare ICU source
-        run: ./build.sh --prepare-only
+        run: |        
+          WORKDIR=$(pwd)/build
+          DISTDIR=$(pwd)/dist
+          BUILDLOG="$DISTDIR/build.log"
+
+          echo "==========================================================================="
+          echo "\033[0;32m Detail build log can be found at: $BUILDLOG\033[0m"
+          echo "==========================================================================="
+
+          mkdir -p  "$WORKDIR"
+          mkdir -p  "$DISTDIR"
+          touch     "$BUILDLOG"
+          echo "" > "$BUILDLOG"
+          ./build.sh --prepare-only
 
       - name: Build macOS Release
         run: |
