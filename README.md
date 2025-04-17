@@ -22,13 +22,15 @@ This project simplifies using ICU in downstream projects by offering **precompil
 
 ## 📦 Versions
 
+The version of the ICU, Clang, and Emscripten SDK are in `versions.env`.
+The current release is `1.0.0` and the versions of the component are as follows:
+
 | Component      | Version   |
 |----------------|-----------|
 | ICU            | `77.1`    |
 | Clang          | `18.x`    |
 | Emscripten SDK | `4.0.6`   |
 
-These versions are locked in via `build.sh` for consistency and reproducibility across builds.
 
 ---
 
@@ -38,10 +40,16 @@ This repo includes:
 
 | Script          | Purpose                                                              |
 |-----------------|----------------------------------------------------------------------|
-| `build.sh`      | Main cross-platform build orchestrator (Linux, Windows, WASM, etc.) |
-| `mac-build.sh`  | Specialized macOS build script supporting Universal binaries         |
 | `full-build.sh` | GitHub Actions entry point (Docker-based full build)                 |
-| `quick-build.sh`| Lightweight local build for Linux only (Clang)                      |
+| `quick-build.sh`| Lightweight local build for Linux only (Clang)                       |
+| `.github/workflows/release.yaml` | Manual GitHub-triggered release workflow            |
+
+Support scripts:
+
+| Script          | Purpose                                                              |
+|-----------------|----------------------------------------------------------------------|
+| `build.sh`      | Main cross-platform build orchestrator (Linux, Windows, WASM, etc.)  |
+| `mac-build.sh`  | Specialized macOS build script supporting Universal binaries         |
 | `.github/workflows/release.yaml` | Manual GitHub-triggered release workflow            |
 
 ---
@@ -50,7 +58,7 @@ This repo includes:
 
 Run the GitHub Actions workflow **manually** to create a full release:
 
-1. Trigger the [Release (Manual)](https://github.com/your-org/your-repo/actions) workflow
+1. Trigger the [Release (Manual)](https://github.com/NawaMan/MultiPlatformICCU4C/actions) workflow
 2. Optionally enter a version (or it reads from `version.txt`)
 3. It builds:
    - Linux (Clang)
@@ -61,6 +69,9 @@ Run the GitHub Actions workflow **manually** to create a full release:
    - Uploads all artifacts
    - Extracts changelog section
    - Tags + publishes a GitHub Release
+
+If the action is run in release branch, the release version will be published.
+Otherwise, the snapshot version will be published.
 
 ---
 

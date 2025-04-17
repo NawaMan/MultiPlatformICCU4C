@@ -2,7 +2,15 @@
 set -e
 set -o pipefail
 
-ICU_VERSION="dev"
+
+
+WORKDIR=$(pwd)/build
+DISTDIR=$(pwd)/dist
+BUILDLOG="$DISTDIR/build.log"
+source common.source
+
+
+
 ARCHS=()
 
 # Parse args
