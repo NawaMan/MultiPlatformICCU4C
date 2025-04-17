@@ -1,6 +1,6 @@
 # 🌐 MultiPlatform ICU4C Builder
 
-Prebuild [ICU4C (International Components for Unicode)](https://icu.unicode.org/) as **static libraries** for multiple platforms — including Linux, Windows, and WebAssembly.
+Prebuild [ICU4C (International Components for Unicode)](https://icu.unicode.org/) as **static libraries** for multiple platforms — including Linux, Windows, MacOS, and WebAssembly.
 
 This project simplifies using ICU in downstream projects by offering **precompiled packages**, version-controlled builds, and optional LLVM IR outputs — ideal for cross-platform projects, embedded runtimes, and CI pipelines.
 
@@ -22,7 +22,10 @@ This project simplifies using ICU in downstream projects by offering **precompil
 
 ## 📦 Versions
 
-The version of the ICU, Clang, and Emscripten SDK are in `versions.env`.
+The versions of ICU, Clang, and Emscripten SDK are specified in the [`versions.env`](./versions.env) file at the root of this repository. This file is the single source of truth for the main build component versions used by all build scripts (see also `build.sh`).
+
+If you need to build with different versions of ICU, Clang, or Emscripten, simply clone this repository and edit `versions.env` to your desired values.
+
 The current release is `1.0.0` and the versions of the component are as follows:
 
 | Component      | Version   |
@@ -79,6 +82,7 @@ Otherwise, the snapshot version will be published.
 
 After build, all artifacts are stored in `dist/`:
 
+```
 dist/
 ├── icu4c-77.1-linux-x86_64-clang-18.zip
 ├── icu4c-77.1-windows-x86_64-clang-18.zip
@@ -86,6 +90,7 @@ dist/
 ├── icu4c-77.1-macos-universal.zip
 ├── icu4c-77.1-llvm-kit-64.zip
 └── ...
+```
 
 
 Each ZIP includes:
@@ -104,7 +109,7 @@ You can run a local build using:
 ./quick-build.sh
 ```
 
-Or for all platforms (requires Docker + Emscripten):
+Or for all platforms (requires Docker):
 
 ```bash
 ./full-build.sh
