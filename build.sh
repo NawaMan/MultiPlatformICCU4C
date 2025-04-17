@@ -14,7 +14,6 @@ if [[ "$1" == "--help" ]]; then
   echo "Options:"
   echo "  --quick                      Only build for Linux using Clang"
   echo "  --ignore-compiler-version    Skip compiler version checks"
-  echo "  --clean                      Run clean.sh before building"
   echo "  --help                       Show this help message"
   exit 0
 fi
@@ -23,7 +22,6 @@ fi
 
 PREPARE_ONLY=0
 IGNORE_COMPILER_VERSION=0
-ICU_MAJ_VER="${ICU_VERSION%%.*}"
 BUILD_CLANG=1
 BUILD_WINDOWS=1
 BUILD_WASM=1
@@ -47,6 +45,9 @@ DISTDIR=$(pwd)/dist
 BUILDLOG="$DISTDIR/build.log"
 source common.source
 
+
+
+print_section "Build starts -- configurations"
 print "WORKDIR: $WORKDIR"
 print "DISTDIR: $DISTDIR"
 print "BUILDLOG: $BUILDLOG"
@@ -57,15 +58,15 @@ print "BUILD_LLVMIR: $BUILD_LLVMIR"
 print ""
 
 
+
+print_section "Prepare working directory"
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 
 
+
+print_section "Prepare ICU source"
 ICU_URL="https://github.com/unicode-org/icu/releases/download/release-${ICU_VERSION//./-}/icu4c-${ICU_VERSION//./_}-src.tgz"
-
-
-
-print_section "Prepare ICU"
 ICU4C_FILE=icu4c.tgz
 if [ ! -f "$ICU4C_FILE" ]; then
   print "📥 Downloading ICU4C..."
@@ -86,6 +87,8 @@ if [[ "$PREPARE_ONLY" -eq 1 ]]; then
 fi
 
 
+
+print_section "Check compiler version"
 ACTUAL_CLANG_VERSION=$(clang --version | grep -o 'clang version [0-9]\+' | awk '{print $3}')
 if [[ $BUILD_CLANG -eq 1 && $IGNORE_COMPILER_VERSION -eq 0 ]]; then
   [[ $ACTUAL_CLANG_VERSION != $CLANG_VERSION* ]] && exit_with_error "Clang version $CLANG_VERSION.x required, found $ACTUAL_CLANG_VERSION."
@@ -280,14 +283,10 @@ build_llvm_ir_variant() {
 if [[ $BUILD_CLANG -eq 1 ]]; then
   build_icu "$LINUX_CLANG_TARGET_32" "" clang clang++ llvm-ar llvm-ranlib "" "-O2 -m32" "-O2 -m32"
   build_icu "$LINUX_CLANG_TARGET_64" "" clang clang++ llvm-ar llvm-ranlib "" "-O2"      "-O2"
-  pwd
-  ls -la "$DISTDIR"
 
   if [[ "$BUILD_LLVMIR" == "1" ]]; then
     build_llvm_ir_variant 32
     build_llvm_ir_variant 64
-    pwd
-    ls -la "$DISTDIR"
   fi
 fi
 
@@ -312,8 +311,6 @@ if [[ $BUILD_WINDOWS -eq 1 ]]; then
     llvm-ar llvm-ranlib \
     "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_64" \
     "-O2" "-O2"
-  pwd
-  ls -la "$DISTDIR"
 fi
 
 if [[ $BUILD_WASM -eq 1 ]]; then
@@ -333,8 +330,6 @@ if [[ $BUILD_WASM -eq 1 ]]; then
   build_icu "wasm32" wasm32 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_64"
   build_icu "wasm64" wasm64 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_64"
   build_wasm_llvm_ir_variant
-  pwd
-  ls -la "$DISTDIR"
 fi
 
 print_status "✅ ICU build is all complete."

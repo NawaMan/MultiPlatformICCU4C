@@ -7,6 +7,10 @@ set -o pipefail
 DISTDIR=dist
 BUILDLOG="$DISTDIR/build.log"
 
+echo "==========================================================================="
+echo "\033[0;32m Detail build log can be found at: $BUILDLOG\033[0m"
+echo "==========================================================================="
+
 rm -Rf "$DISTDIR"
 
 mkdir -p  "$DISTDIR"
@@ -15,19 +19,14 @@ echo "" > "$BUILDLOG"
 
 source common.source
 
-print "CLANG_VERSION: $CLANG_VERSION"
-print "ICU_VERSION:   $ICU_VERSION"
-print "ENSDK_VERSION: $ENSDK_VERSION"
-print ""
 
 
-# Build
+print_section "Quick build"
 ./build.sh --quick
 
 
-# Done
-print_section "Done!"
 
+print_section "Done!"
 print_status "✅ ICU build complete. Output in:"
 print $DISTDIR
 
