@@ -73,7 +73,8 @@ if [[ "$1" == "--dry-run" ]]; then
   DOCKER_ARGS="--dry-run"
 fi
 
-docker run --rm -v "$DISTDIR:/app/dist" icu4c-builder:latest $DOCKER_ARGS
+# docker run --rm -v "$DISTDIR:/app/dist" icu4c-builder:latest $DOCKER_ARGS
+docker run --rm -it -v "$DISTDIR:/app/dist" icu4c-builder:latest bash -c "./build.sh $DOCKER_ARGS; echo 'Build finished. Container will stay alive.'; exec bash"
 
 
 

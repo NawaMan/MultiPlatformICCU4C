@@ -275,10 +275,20 @@ build_llvm_ir_variant() {
 
   # Assemble the devkit
   LLVM_KIT_DIR="$DISTDIR/llvm-kit-${ACTUAL_CLANG_VERSION%%.*}-$BITNESS"
+  if [[ "$BITNESS" == "32" ]]; then
+    LINUX_CLANG_TARGET="$LINUX_CLANG_TARGET_32"
+  elif [[ "$BITNESS" == "64" ]]; then
+    LINUX_CLANG_TARGET="$LINUX_CLANG_TARGET_64"
+  fi
+  
   mkdir -p "$LLVM_KIT_DIR/llvm-ir" "$LLVM_KIT_DIR/llvm-bc"
+  echo rsync -a "$LLVM_IR_DIR/" "$LLVM_KIT_DIR/llvm-ir/"
   rsync -a "$LLVM_IR_DIR/" "$LLVM_KIT_DIR/llvm-ir/"
+  echo rsync -a "$LLVM_BC_DIR/" "$LLVM_KIT_DIR/llvm-bc/"
   rsync -a "$LLVM_BC_DIR/" "$LLVM_KIT_DIR/llvm-bc/"
-  rsync -a "$DISTDIR/$LINUX_CLANG_TARGET_64/include/" "$LLVM_KIT_DIR/include/"
+  echo rsync -a "$DISTDIR/$LINUX_CLANG_TARGET/include/" "$LLVM_KIT_DIR/include/"
+  echo DISTDIR: "$DISTDIR/"
+  rsync -a "$DISTDIR/$LINUX_CLANG_TARGET/include/" "$LLVM_KIT_DIR/include/"
 
   # Add helper scripts
   KIT_FILES="$WORKDIR/../artifacts/llvm-devkit"
