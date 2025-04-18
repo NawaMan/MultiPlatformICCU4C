@@ -24,6 +24,7 @@ setfacl    -m g:$(id -gn):rwx $DISTDIR
 touch     "$BUILDLOG"
 echo "" > "$BUILDLOG"
 
+QUICK_BUILD=false
 source common.source
 
 print "WORKDIR:  $WORKDIR"

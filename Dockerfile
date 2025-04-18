@@ -27,6 +27,7 @@ RUN apt-get update && apt-get install -y \
     clang-${CLANG_VERSION} \
     cmake \
     coreutils \
+    curl \
     flex \
     g++-multilib \
     g++-mingw-w64 \
@@ -50,7 +51,6 @@ RUN apt-get update && apt-get install -y \
     tar \
     tree \
     unzip \
-    wget \
     zip \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*

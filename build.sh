@@ -22,21 +22,19 @@ fi
 
 PREPARE_ONLY=0
 IGNORE_COMPILER_VERSION=0
-BUILD_CLANG=1
-BUILD_WINDOWS=1
-BUILD_WASM=1
-BUILD_LLVMIR=1
 
+
+QUICK_BUILD=false
+UNAME_S=""
+UNAME_M=""
 for arg in "$@"; do
   case "$arg" in
-    --ignore-compiler-version)
-      IGNORE_COMPILER_VERSION=1 ;;
-    --quick)
-      BUILD_CLANG=1; BUILD_WINDOWS=0; BUILD_WASM=0; BUILD_LLVMIR=0 ;;
-    --prepare-only)
-      PREPARE_ONLY=1 ;;
+    --ignore-compiler-version) IGNORE_COMPILER_VERSION=1 ;;
+    --quick)                   QUICK_BUILD=true          ;;
+    --prepare-only)            PREPARE_ONLY=1            ;;
   esac
 done
+
 
 
 
@@ -48,13 +46,12 @@ source common.source
 
 
 print_section "Build starts -- configurations"
+print "CLANG_VERSION: $CLANG_VERSION"
+print "ICU_VERSION:   $ICU_VERSION"
+print "ENSDK_VERSION: $ENSDK_VERSION"
 print "WORKDIR: $WORKDIR"
 print "DISTDIR: $DISTDIR"
 print "BUILDLOG: $BUILDLOG"
-print "BUILD_CLANG: $BUILD_CLANG"
-print "BUILD_WINDOWS: $BUILD_WINDOWS"
-print "BUILD_WASM: $BUILD_WASM"
-print "BUILD_LLVMIR: $BUILD_LLVMIR"
 print ""
 
 
@@ -70,7 +67,8 @@ ICU_URL="https://github.com/unicode-org/icu/releases/download/release-${ICU_VERS
 ICU4C_FILE=icu4c.tgz
 if [ ! -f "$ICU4C_FILE" ]; then
   print "📥 Downloading ICU4C..."
-  wget -nv -O $ICU4C_FILE "$ICU_URL"
+  curl -L -o $ICU4C_FILE "$ICU_URL"
+  print ""
 fi
 
 print "📦 Extracting ICU..."
@@ -78,11 +76,13 @@ rm -rf icu
 mkdir icu
 cd icu
 tar -xzf ../$ICU4C_FILE --strip-components=1
+print ""
 
 print "✅ ICU is ready at $WORKDIR/icu"
 
 if [[ "$PREPARE_ONLY" -eq 1 ]]; then
   print "✅ Prepare completed, ICU is ready at $WORKDIR/icu"
+  print ""
   exit 0
 fi
 
@@ -95,6 +95,9 @@ if [[ $BUILD_CLANG -eq 1 && $IGNORE_COMPILER_VERSION -eq 0 ]]; then
 fi
 LINUX_CLANG_TARGET_32="linux-x86_32-clang-${ACTUAL_CLANG_VERSION%%.*}"
 LINUX_CLANG_TARGET_64="linux-x86_64-clang-${ACTUAL_CLANG_VERSION%%.*}"
+
+print "✅ Compiler version checked"
+print ""
 
 
 
@@ -162,7 +165,7 @@ build_icu() {
   INSTALL_DIR="$DISTDIR/$TARGET"
   # Determine toolchain tag for zip file
 if [[ "$TARGET" == wasm* ]]; then
-  TOOLCHAIN_TAG="ensdk${ENSDK_VERSION}"
+  TOOLCHAIN_TAG="clang${CLANG_VERSION}-ensdk${ENSDK_VERSION}"
 else
   TOOLCHAIN_TAG="clang${CLANG_VERSION}"
 fi
@@ -197,7 +200,7 @@ ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}-$TARGET-$TOOLCHAIN_TAG.zip"
   make install      >> "$BUILDLOG" 2>&1
 
   zip -r "$ZIP_FILE" ./  >> "$BUILDLOG" 2>&1
-  print_status "✅ Created $ZIP_FILE"
+  print "✅ Created $ZIP_FILE"
   chmod -R ugo+rwx "$DISTDIR"
 }
 
@@ -284,42 +287,68 @@ build_llvm_ir_variant() {
   print_status "✅ Created full LLVM kit zip ($BITNESS-bit): $ZIP_OUT"
 }
 
+print "LINUX_32: $LINUX_32"
+print "LINUX_64: $LINUX_64"
+print "WINDOWS_32: $WINDOWS_32"
+print "WINDOWS_64: $WINDOWS_64"
+print "MACOSX86: $MACOSX86"
+print "MACOSARM64: $MACOSARM64"
+print "WASM32: $WASM32"
+print "WASM64: $WASM64"
+print "LLVMIR32: $LLVMIR32"
+print "LLVMIR64: $LLVMIR64"
+print "BUILD_CLANG: $BUILD_CLANG"
+print "BUILD_WINDOWS: $BUILD_WINDOWS"
+print "BUILD_WASM: $BUILD_WASM"
+print "BUILD_LLVMIR: $BUILD_LLVMIR"
+print ""
 
 
-if [[ $BUILD_CLANG -eq 1 ]]; then
-  build_icu "$LINUX_CLANG_TARGET_32" "" clang clang++ llvm-ar llvm-ranlib "" "-O2 -m32" "-O2 -m32"
-  build_icu "$LINUX_CLANG_TARGET_64" "" clang clang++ llvm-ar llvm-ranlib "" "-O2"      "-O2"
+if [[ "$LINUX_32" == true || "$LINUX_64" == true ]]; then
+  # Linux builds
+  if [[ "$LINUX_32" == true ]]; then
+    build_icu "$LINUX_CLANG_TARGET_32" "" clang clang++ llvm-ar llvm-ranlib "" "-O2 -m32" "-O2 -m32"
+  fi
+  if [[ "$LINUX_64" == true ]]; then
+    build_icu "$LINUX_CLANG_TARGET_64" "" clang clang++ llvm-ar llvm-ranlib "" "-O2"      "-O2"
+  fi
 
-  if [[ "$BUILD_LLVMIR" == "1" ]]; then
+  if [[ "$BUILD_LLVMIR" == true ]]; then
     build_llvm_ir_variant 32
     build_llvm_ir_variant 64
   fi
 fi
 
-if [[ $BUILD_WINDOWS -eq 1 ]]; then
+if [[ "$BUILD_WINDOWS" == true ]]; then
   print_section "Build ICU for Windows"
 
   WINDOWS_CLANG_TARGET_64="windows-x86_64-clang-${ACTUAL_CLANG_VERSION%%.*}"
   WINDOWS_CLANG_TARGET_32="windows-x86-32-clang-${ACTUAL_CLANG_VERSION%%.*}"
 
-  build_icu "$WINDOWS_CLANG_TARGET_64" \
-    x86_64-w64-mingw32 \
-    "clang --target=x86_64-w64-windows-gnu" \
-    "clang++ --target=x86_64-w64-windows-gnu" \
-    llvm-ar llvm-ranlib \
-    "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_64" \
-    "-O2" "-O2"
+  if [[ "$WINDOWS_32" == true ]]; then
+    build_icu "$WINDOWS_CLANG_TARGET_32" \
+      i686-w64-mingw32 \
+      "clang --target=i686-w64-windows-gnu" \
+      "clang++ --target=i686-w64-windows-gnu" \
+      llvm-ar llvm-ranlib \
+      "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_32" \
+      "-O2" "-O2"
+  fi
 
-  build_icu "$WINDOWS_CLANG_TARGET_32" \
-    i686-w64-mingw32 \
-    "clang --target=i686-w64-windows-gnu" \
-    "clang++ --target=i686-w64-windows-gnu" \
-    llvm-ar llvm-ranlib \
-    "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_64" \
-    "-O2" "-O2"
+  if [[ "$WINDOWS_64" == true ]]; then
+    build_icu "$WINDOWS_CLANG_TARGET_64" \
+      x86_64-w64-mingw32 \
+      "clang --target=x86_64-w64-windows-gnu" \
+      "clang++ --target=x86_64-w64-windows-gnu" \
+      llvm-ar llvm-ranlib \
+      "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_64" \
+      "-O2" "-O2"
+  fi
+
 fi
 
-if [[ $BUILD_WASM -eq 1 ]]; then
+# WASM builds
+if [[ "$BUILD_WASM" == true ]]; then
   print_section "Build WEB ASM"
   if [ ! -d emsdk ]; then
     git clone https://github.com/emscripten-core/emsdk.git
@@ -333,9 +362,23 @@ if [[ $BUILD_WASM -eq 1 ]]; then
 
   source "$EMSDK/emsdk_env.sh"
   cp "$WORKDIR/icu/source/config/mh-linux" "$WORKDIR/icu/source/config/mh-unknown"
-  build_icu "wasm32" wasm32 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_64"
-  build_icu "wasm64" wasm64 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_64"
+
+  if [[ "$WASM32" == true ]]; then
+    build_icu "wasm32" wasm32 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_32"
+  fi
+  if [[ "$WASM64" == true ]]; then
+    build_icu "wasm64" wasm64 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_64"
+  fi
+
   build_wasm_llvm_ir_variant
+fi
+
+# LLVM IR builds
+if [[ "$LLVMIR32" == true ]]; then
+  build_wasm_llvm_ir_variant 32
+fi
+if [[ "$LLVMIR64" == true ]]; then
+  build_wasm_llvm_ir_variant 64
 fi
 
 print_status "✅ ICU build is all complete."

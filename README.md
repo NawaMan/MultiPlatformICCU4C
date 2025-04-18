@@ -86,13 +86,13 @@ After build, all artifacts are stored in `dist/`:
 dist/
 ├── icu4c-77.1-linux-x86_32-clang-18.zip
 ├── icu4c-77.1-linux-x86_64-clang-18.zip
-├── icu4c-77.1-llvm-kit-32.zip
-├── icu4c-77.1-llvm-kit-64.zip
-├── icu4c-77.1-macos-arm64.zip
-├── icu4c-77.1-macos-universal.zip
-├── icu4c-77.1-macos-x86_64.zip
-├── icu4c-77.1-wasm32.zip
-├── icu4c-77.1-wasm64.zip
+├── icu4c-77.1-llvm-kit-32-clang-18.zip
+├── icu4c-77.1-llvm-kit-64-clang-18.zip
+├── icu4c-77.1-macos-arm64-clang-18.zip
+├── icu4c-77.1-macos-universal-clang-18.zip
+├── icu4c-77.1-macos-x86_64-clang-18.zip
+├── icu4c-77.1-wasm32-ensdk-4.0.6.zip
+├── icu4c-77.1-wasm64-ensdk-4.0.6.zip
 ├── icu4c-77.1-windows-x86-32-clang-18.zip
 ├── icu4c-77.1-windows-x86_64-clang-18.zip
 ├── Source code (zip)

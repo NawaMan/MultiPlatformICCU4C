@@ -94,6 +94,8 @@ jobs:
           VERSION="${{ needs.release.outputs.version }}"
           echo "Building macOS release for version $VERSION"
           chmod +x mac-build.sh
+          
+          # mac-build.sh does not concern the QUICK_BUILD variable.
           ./mac-build.sh --icu-version 77.1
 
       - name: Upload macOS Artifacts

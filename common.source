@@ -75,3 +75,86 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/versions.env"
 
 
+QUICK_BUILD=${QUICK_BUILD:-false}
+
+# Default all build targets to false
+LINUX_32=false
+LINUX_64=false
+WINDOWS_32=false
+WINDOWS_64=false
+MACOSX86=false
+MACOSARM64=false
+WASM32=false
+WASM64=false
+LLVMIR32=false
+LLVMIR64=false
+BUILD_CLANG=false
+BUILD_WINDOWS=false
+BUILD_WASM=false
+BUILD_LLVMIR=false
+
+UNAME_S=$(uname -s)
+UNAME_M=$(uname -m)
+
+if [[ $QUICK_BUILD == true ]]; then
+  case "$UNAME_S" in
+    Linux)
+      BUILD_CLANG=true
+      case "$UNAME_M" in
+        x86_64)      LINUX_64=true ;;
+        i686 | i386) LINUX_32=true ;;
+        *)           echo "Unsupported Linux architecture: $UNAME_M"; exit 1 ;;
+      esac ;;
+    Darwin)
+      BUILD_CLANG=true
+      case "$UNAME_M" in
+        x86_64) MACOSX86=true ;;
+        arm64)  MACOSARM64=true ;;
+        *)      echo "Unsupported macOS architecture: $UNAME_M"; exit 1 ;;
+      esac ;;
+    MINGW*|MSYS*|CYGWIN*)
+      BUILD_CLANG=true
+      case "$UNAME_M" in
+        x86_64)      WINDOWS_64=true ;;
+        i686 | i386) WINDOWS_32=true ;;
+        *)           echo "Unsupported Windows architecture: $UNAME_M"; exit 1 ;;
+      esac ;;
+    *) echo "Unsupported OS: $UNAME_S"; exit 1 ;;
+  esac
+else
+  # Full build: enable all targets
+  LINUX_32=true
+  LINUX_64=true
+  WINDOWS_32=true
+  WINDOWS_64=true
+  MACOSX86=true
+  MACOSARM64=true
+  WASM32=true
+  WASM64=true
+  LLVMIR32=true
+  LLVMIR64=true
+  BUILD_CLANG=true
+  BUILD_WINDOWS=true
+  BUILD_WASM=true
+  BUILD_LLVMIR=true
+fi
+
+VERBOSE=${VERBOSE:-true}
+if [[ $VERBOSE == true ]]; then
+  print "LINUX_32: $LINUX_32"
+  print "LINUX_64: $LINUX_64"
+  print "WINDOWS_32: $WINDOWS_32"
+  print "WINDOWS_64: $WINDOWS_64"
+  print "MACOSX86: $MACOSX86"
+  print "MACOSARM64: $MACOSARM64"
+  print "WASM32: $WASM32"
+  print "WASM64: $WASM64"
+  print "LLVMIR32: $LLVMIR32"
+  print "LLVMIR64: $LLVMIR64"
+  print "BUILD_CLANG: $BUILD_CLANG"
+  print "BUILD_WINDOWS: $BUILD_WINDOWS"
+  print "BUILD_WASM: $BUILD_WASM"
+  print "BUILD_LLVMIR: $BUILD_LLVMIR"
+  print ""
+fi
+
