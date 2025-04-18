@@ -114,6 +114,7 @@ if [[ $QUICK_BUILD == true ]]; then
       esac ;;
     MINGW*|MSYS*|CYGWIN*)
       BUILD_CLANG=true
+      BUILD_WINDOWS=true
       case "$UNAME_M" in
         x86_64)      WINDOWS_64=true ;;
         i686 | i386) WINDOWS_32=true ;;
@@ -139,22 +140,61 @@ else
   BUILD_LLVMIR=true
 fi
 
-VERBOSE=${VERBOSE:-true}
-if [[ $VERBOSE == true ]]; then
-  print "LINUX_32: $LINUX_32"
-  print "LINUX_64: $LINUX_64"
-  print "WINDOWS_32: $WINDOWS_32"
-  print "WINDOWS_64: $WINDOWS_64"
-  print "MACOSX86: $MACOSX86"
-  print "MACOSARM64: $MACOSARM64"
-  print "WASM32: $WASM32"
-  print "WASM64: $WASM64"
-  print "LLVMIR32: $LLVMIR32"
-  print "LLVMIR64: $LLVMIR64"
-  print "BUILD_CLANG: $BUILD_CLANG"
-  print "BUILD_WINDOWS: $BUILD_WINDOWS"
-  print "BUILD_WASM: $BUILD_WASM"
-  print "BUILD_LLVMIR: $BUILD_LLVMIR"
-  print ""
-fi
+show_build_matrix() {
+  VERBOSE=${VERBOSE:-true}
+  if [[ $VERBOSE == true ]]; then
+    row() {
+      NAME="$1"
+      VALUE32="$2"
+      VALUE64="$3"
+      local ICON32 ICON64
+      if [[ $VALUE32 == true ]]; then
+        ICON32_RAW='✅'
+        ICON32_CLR='\033[0;32m✅\033[0m'
+      else
+        ICON32_RAW='❌'
+        ICON32_CLR='\033[0;31m❌\033[0m'
+      fi
+      if [[ $VALUE64 == true ]]; then
+        ICON64_RAW='✅'
+        ICON64_CLR='\033[0;32m✅\033[0m'
+      else
+        ICON64_RAW='❌'
+        ICON64_CLR='\033[0;31m❌\033[0m'
+      fi
+      # Print aligned (raw) to log
+      printf '%-10s %-2s  %-2s\n' "$NAME" "$ICON32_RAW" "$ICON64_RAW" | tee -a "$BUILDLOG"
+      # If interactive terminal, overwrite with colored for terminal only
+      if [ -t 1 ]; then
+        tput cuu1; tput el
+        printf '%-10s %-2b  %-2b\n' "$NAME" "$ICON32_CLR" "$ICON64_CLR"
+      fi
 
+    }
+
+    # Print build matrix as a table with three columns: Target, 32, 64
+    printf "\n\033[1m%-10s %-3s %-3s\033[0m\n" "Target" "32" "64" | tee -a "$BUILDLOG"
+    row "LINUX"     "$LINUX_32"   "$LINUX_64"   | tee -a "$BUILDLOG"
+    row "WINDOWS"   "$WINDOWS_32" "$WINDOWS_64" | tee -a "$BUILDLOG"
+    row "MACOS"     "$MACOSX86"   "$MACOSARM64" | tee -a "$BUILDLOG"
+    row "WASM"      "$WASM32"     "$WASM64"     | tee -a "$BUILDLOG"
+    row "LLVMIR"    "$LLVMIR32"   "$LLVMIR64"   | tee -a "$BUILDLOG"
+    print "" | tee -a "$BUILDLOG"
+    
+    # Print summary with colored check/cross
+    summary_icon() {
+      if [[ $1 == true ]]; then
+        echo -e '\033[0;32m✅\033[0m'
+      else
+        echo -e '\033[0;31m❌\033[0m'
+      fi
+    }
+    printf "%-13s %b\n" "BUILD_CLANG"   "$(summary_icon $BUILD_CLANG)"   | tee -a "$BUILDLOG"
+    printf "%-13s %b\n" "BUILD_WINDOWS" "$(summary_icon $BUILD_WINDOWS)" | tee -a "$BUILDLOG"
+    printf "%-13s %b\n" "BUILD_WASM"    "$(summary_icon $BUILD_WASM)"    | tee -a "$BUILDLOG"
+    printf "%-13s %b\n" "BUILD_LLVMIR"  "$(summary_icon $BUILD_LLVMIR)"  | tee -a "$BUILDLOG"
+    print "" | tee -a "$BUILDLOG"
+  fi
+}
+
+show_build_matrix

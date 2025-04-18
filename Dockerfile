@@ -1,7 +1,7 @@
 FROM ubuntu:24.04
 
 # Set environment variable for Clang version
-ARG CLANG_VERSION=18
+ARG CLANG_VERSION=20
 ARG ICU_VERSION=77.1
 ARG ENSDK_VERSION=4.0.6
 
@@ -15,6 +15,11 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Add i386 architecture
 RUN dpkg --add-architecture i386 && \
     apt-get update
+
+RUN apt-get update && apt-get install -y wget gnupg lsb-release software-properties-common
+RUN wget https://apt.llvm.org/llvm.sh
+RUN chmod +x llvm.sh
+RUN ./llvm.sh ${CLANG_VERSION}
 
 # Update and install dependencies
 RUN apt-get update && apt-get install -y \
@@ -33,8 +38,8 @@ RUN apt-get update && apt-get install -y \
     g++-mingw-w64 \
     gcc-multilib \
     git \
-    libc++-18-dev \
-    libc++abi-18-dev \
+    libc++-${CLANG_VERSION}-dev \
+    libc++abi-${CLANG_VERSION}-dev \
     libc6-dev-i386 \
     libstdc++-13-dev:i386 \
     libtool \

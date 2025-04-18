@@ -20,6 +20,42 @@ This project simplifies using ICU in downstream projects by offering **precompil
 
 ---
 
+## Build Instructions
+
+### Windows Toolchain Setup (MSYS2/MinGW-w64)
+
+To build this project on Windows, you must use the MSYS2 MinGW-w64 environment with the proper toolchain. **Classic MinGW or Git Bash is NOT sufficient.**
+
+#### 1. Install MSYS2
+- Download the installer from [https://www.msys2.org/](https://www.msys2.org/)
+- Follow the instructions to install MSYS2 to `C:\msys64` (default).
+
+#### 2. Open the MSYS2 MinGW 64-bit Shell
+- From the Windows Start menu, search for **"MSYS2 MinGW 64-bit"** and open it.
+- Your prompt should start with `MINGW64`.
+
+#### 3. Update MSYS2 and Install the Toolchain
+In the MSYS2 MinGW64 shell, run:
+```sh
+pacman -Syu
+pacman -S mingw-w64-x86_64-toolchain mingw-w64-x86_64-clang
+```
+- When prompted to select packages, press `Enter` to install all.
+
+#### 4. Verify the Setup
+Still in the MSYS2 MinGW64 shell, check:
+```sh
+which clang
+which x86_64-w64-mingw32-gcc
+```
+Both should return paths under `/mingw64/bin/`.
+
+#### 5. Build the Project
+- Use this shell for all build commands (e.g., `./quick-build.sh`, `./build.sh`).
+- Do **not** use Git Bash or classic MinGW shells.
+
+---
+
 ## 📦 Versions
 
 The versions of ICU, Clang, and Emscripten SDK are specified in the [`versions.env`](./versions.env) file at the root of this repository. This file is the single source of truth for the main build component versions used by all build scripts (see also `build.sh`).

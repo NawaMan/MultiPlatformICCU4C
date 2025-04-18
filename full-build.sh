@@ -1,8 +1,25 @@
 #!/bin/bash
 
+# full-build.sh: Build ICU4C for all supported platforms using Docker
+#
+# Usage:
+#   ./full-build.sh [--dry-run]
+#
+# Options:
+#   --dry-run   Show what would be built, but do not execute any build commands (passed through to build.sh)
+
+
 set -e
 # set -x
 set -o pipefail
+
+if [[ "$1" == "--help" ]]; then
+  echo -e "\033[1;33mUsage:\033[0m $0 [--dry-run]"
+  echo "Options:"
+  echo "  --dry-run   Show what would be built, but do not execute any build commands (passed through to build.sh)"
+  echo "  --help      Show this help message"
+  exit 0
+fi
 
 
 
@@ -27,12 +44,12 @@ echo "" > "$BUILDLOG"
 QUICK_BUILD=false
 source common.source
 
-print "WORKDIR:  $WORKDIR"
-print "DISTDIR:  $DISTDIR"
-print "BUILDLOG: $BUILDLOG"
 print "CLANG_VERSION: $CLANG_VERSION"
 print "ICU_VERSION:   $ICU_VERSION"
 print "ENSDK_VERSION: $ENSDK_VERSION"
+print "WORKDIR:  $WORKDIR"
+print "DISTDIR:  $DISTDIR"
+print "BUILDLOG: $BUILDLOG"
 print ""
 
 
@@ -51,7 +68,12 @@ docker build . \
 
 
 print_section "Run the container with volume mapping for dist"
-docker run --rm -v "$DISTDIR:/app/dist" icu4c-builder:latest
+DOCKER_ARGS=""
+if [[ "$1" == "--dry-run" ]]; then
+  DOCKER_ARGS="--dry-run"
+fi
+
+docker run --rm -v "$DISTDIR:/app/dist" icu4c-builder:latest $DOCKER_ARGS
 
 
 

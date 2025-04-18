@@ -14,6 +14,7 @@ if [[ "$1" == "--help" ]]; then
   echo "Options:"
   echo "  --quick                      Only build for Linux using Clang"
   echo "  --ignore-compiler-version    Skip compiler version checks"
+  echo "  --dry-run                    Show what would be built, but do not execute any build commands"
   echo "  --help                       Show this help message"
   exit 0
 fi
@@ -22,6 +23,7 @@ fi
 
 PREPARE_ONLY=0
 IGNORE_COMPILER_VERSION=0
+DRY_RUN=false
 
 
 QUICK_BUILD=false
@@ -32,6 +34,7 @@ for arg in "$@"; do
     --ignore-compiler-version) IGNORE_COMPILER_VERSION=1 ;;
     --quick)                   QUICK_BUILD=true          ;;
     --prepare-only)            PREPARE_ONLY=1            ;;
+    --dry-run)                 DRY_RUN=true              ;;
   esac
 done
 
@@ -101,75 +104,18 @@ print ""
 
 
 
-build_wasm_llvm_ir_variant() {
-  for BITNESS in 32 64; do
-    local TARGET="wasm${BITNESS}"
-    local LLVM_IR_DIR="$DISTDIR/llvm-ir-${ACTUAL_CLANG_VERSION%%.*}/$TARGET"
-    local LLVM_BC_DIR="$DISTDIR/llvm-bc-${ACTUAL_CLANG_VERSION%%.*}/$TARGET"
-    mkdir -p "$LLVM_IR_DIR" "$LLVM_BC_DIR"
-
-    print_section "Generating LLVM IR/BC files for WebAssembly (${TARGET})"
-
-    find "$ICU_SOURCE" -name '*.cpp' \
-      ! -path '*/samples/*' \
-      ! -path '*/test/*' \
-      ! -path '*/perf/*' \
-      ! -path '*/tools/*' \
-      | while read -r cppfile; do
-
-      relpath=$(realpath --relative-to="$ICU_SOURCE" "$cppfile")
-      if grep -q 'LETypes.h' "$cppfile"; then
-        print "⚠️  Skipping $relpath (LETypes.h)"
-        continue
-      fi
-
-      mkdir -p "$LLVM_IR_DIR/$(dirname "$relpath")"
-      mkdir -p "$LLVM_BC_DIR/$(dirname "$relpath")"
-
-      macro=""
-      case "$cppfile" in
-        */common/*)   macro="-DU_COMMON_IMPLEMENTATION" ;; 
-        */i18n/*)     macro="-DU_I18N_IMPLEMENTATION" ;; 
-        */layoutex/*) macro="-DU_LAYOUTEX_IMPLEMENTATION" ;; 
-        */io/*)       macro="-DU_IO_IMPLEMENTATION" ;; 
-      esac
-
-      em_target="wasm${BITNESS}-unknown-emscripten"
-
-      em++ -std=c++23 -S -emit-llvm -target $em_target $macro \
-        -I"$ICU_SOURCE" -I"$ICU_SOURCE/common" -I"$ICU_SOURCE/i18n" \
-        -I"$ICU_SOURCE/layoutex" -I"$ICU_SOURCE/layout" -I"$ICU_SOURCE/io" \
-        "$cppfile" \
-        -o "$LLVM_IR_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).ll" \
-        >> "$BUILDLOG" 2>&1 \
-        || exit_with_error "Failed IR: $relpath"
-
-      em++ -std=c++23 -c -emit-llvm -O2 -target $em_target $macro \
-        -I"$ICU_SOURCE" -I"$ICU_SOURCE/common" -I"$ICU_SOURCE/i18n" \
-        -I"$ICU_SOURCE/layoutex" -I"$ICU_SOURCE/layout" -I"$ICU_SOURCE/io" \
-        "$cppfile" \
-        -o "$LLVM_BC_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).bc" \
-        >> "$BUILDLOG" 2>&1 \
-        || exit_with_error "Failed BC: $relpath"
-    done
-  done
-}
-
-
-
 build_icu() {
   TARGET="$1"; HOST="$2"; CC="$3"; CXX="$4"; AR="$5"; RANLIB="$6"; EXTRA_FLAGS="$7";  EXTRA_CFLAGS="$8"; EXTRA_CXXFLAGS="$9"
   print_section "Build ICU for $TARGET"
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "[DRY RUN] Would build ICU for: TARGET=$TARGET HOST=$HOST CC=$CC CXX=$CXX AR=$AR RANLIB=$RANLIB EXTRA_FLAGS=[$EXTRA_FLAGS] EXTRA_CFLAGS=[$EXTRA_CFLAGS] EXTRA_CXXFLAGS=[$EXTRA_CXXFLAGS]"
+    return 0
+  fi
 
   BUILD_DIR="$WORKDIR/build-$TARGET"
   INSTALL_DIR="$DISTDIR/$TARGET"
   # Determine toolchain tag for zip file
-if [[ "$TARGET" == wasm* ]]; then
-  TOOLCHAIN_TAG="clang${CLANG_VERSION}-ensdk${ENSDK_VERSION}"
-else
-  TOOLCHAIN_TAG="clang${CLANG_VERSION}"
-fi
-ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}-$TARGET-$TOOLCHAIN_TAG.zip"
+  ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}-$TARGET.zip"
 
   rm    -rf "$BUILD_DIR" "$INSTALL_DIR"
   mkdir -p  "$BUILD_DIR" "$INSTALL_DIR/bin" "$INSTALL_DIR/lib" "$INSTALL_DIR/include"
@@ -204,7 +150,66 @@ ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}-$TARGET-$TOOLCHAIN_TAG.zip"
   chmod -R ugo+rwx "$DISTDIR"
 }
 
+build_wasm_llvm_ir_variant() {
+  local BITNESS="$1"
+  if [[ "$BITNESS" != "32" && "$BITNESS" != "64" ]]; then
+    echo "Usage: build_wasm_llvm_ir_variant <32|64>" >&2
+    exit 1
+  fi
+  local TARGET="wasm${BITNESS}"
+  local LLVM_IR_DIR="$DISTDIR/llvm-ir-${ACTUAL_CLANG_VERSION%%.*}/$TARGET"
+  local LLVM_BC_DIR="$DISTDIR/llvm-bc-${ACTUAL_CLANG_VERSION%%.*}/$TARGET"
+  mkdir -p "$LLVM_IR_DIR" "$LLVM_BC_DIR"
 
+  print_section "Generating LLVM IR/BC files for WebAssembly (${TARGET})"
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "[DRY RUN] Would generate LLVM IR/BC for WebAssembly: BITNESS=$BITNESS TARGET=$TARGET (Clang ${ACTUAL_CLANG_VERSION%%.*})"
+    return 0
+  fi
+
+  find "$ICU_SOURCE" -name '*.cpp' \
+    ! -path '*/samples/*' \
+    ! -path '*/test/*' \
+    ! -path '*/perf/*' \
+    ! -path '*/tools/*' \
+    | while read -r cppfile; do
+
+    relpath=$(realpath --relative-to="$ICU_SOURCE" "$cppfile")
+    if grep -q 'LETypes.h' "$cppfile"; then
+      print "⚠️  Skipping $relpath (LETypes.h)"
+      continue
+    fi
+
+    mkdir -p "$LLVM_IR_DIR/$(dirname "$relpath")"
+    mkdir -p "$LLVM_BC_DIR/$(dirname "$relpath")"
+
+    macro=""
+    case "$cppfile" in
+      */common/*)   macro="-DU_COMMON_IMPLEMENTATION" ;;
+      */i18n/*)     macro="-DU_I18N_IMPLEMENTATION" ;;
+      */layoutex/*) macro="-DU_LAYOUTEX_IMPLEMENTATION" ;;
+      */io/*)       macro="-DU_IO_IMPLEMENTATION" ;;
+    esac
+
+    em_target="wasm${BITNESS}-unknown-emscripten"
+
+    em++ -std=c++23 -S -emit-llvm -target $em_target $macro \
+      -I"$ICU_SOURCE" -I"$ICU_SOURCE/common" -I"$ICU_SOURCE/i18n" \
+      -I"$ICU_SOURCE/layoutex" -I"$ICU_SOURCE/layout" -I"$ICU_SOURCE/io" \
+      "$cppfile" \
+      -o "$LLVM_IR_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).ll" \
+      >> "$BUILDLOG" 2>&1 \
+      || exit_with_error "Failed IR: $relpath"
+
+    em++ -std=c++23 -c -emit-llvm -O2 -target $em_target $macro \
+      -I"$ICU_SOURCE" -I"$ICU_SOURCE/common" -I"$ICU_SOURCE/i18n" \
+      -I"$ICU_SOURCE/layoutex" -I"$ICU_SOURCE/layout" -I"$ICU_SOURCE/io" \
+      "$cppfile" \
+      -o "$LLVM_BC_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).bc" \
+      >> "$BUILDLOG" 2>&1 \
+      || exit_with_error "Failed BC: $relpath"
+  done
+}
 
 build_llvm_ir_variant() {
   local BITNESS="$1"
@@ -216,6 +221,10 @@ build_llvm_ir_variant() {
   mkdir -p "$LLVM_IR_DIR" "$LLVM_BC_DIR"
 
   print_section "Generating LLVM IR/BC files for Clang ${ACTUAL_CLANG_VERSION%%.*} ($BITNESS-bit)"
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "[DRY RUN] Would generate LLVM IR/BC for Linux: BITNESS=$BITNESS TARGET=$LINUX_CLANG_TARGET_$BITNESS (Clang ${ACTUAL_CLANG_VERSION%%.*})"
+    return 0
+  fi
 
   find "$ICU_SOURCE" -name '*.cpp' \
     ! -path '*/samples/*' \
@@ -281,41 +290,29 @@ build_llvm_ir_variant() {
   fi
 
   # Create zip
-  ZIP_OUT="$DISTDIR/icu4c-${ICU_VERSION}-llvm-kit-${BITNESS}-clang${CLANG_VERSION}.zip"
+  ZIP_OUT="$DISTDIR/icu4c-${ICU_VERSION}-llvm-kit-${BITNESS}.zip"
   zip -r "$ZIP_OUT" . >> "$BUILDLOG" 2>&1
 
   print_status "✅ Created full LLVM kit zip ($BITNESS-bit): $ZIP_OUT"
 }
 
-print "LINUX_32: $LINUX_32"
-print "LINUX_64: $LINUX_64"
-print "WINDOWS_32: $WINDOWS_32"
-print "WINDOWS_64: $WINDOWS_64"
-print "MACOSX86: $MACOSX86"
-print "MACOSARM64: $MACOSARM64"
-print "WASM32: $WASM32"
-print "WASM64: $WASM64"
-print "LLVMIR32: $LLVMIR32"
-print "LLVMIR64: $LLVMIR64"
-print "BUILD_CLANG: $BUILD_CLANG"
-print "BUILD_WINDOWS: $BUILD_WINDOWS"
-print "BUILD_WASM: $BUILD_WASM"
-print "BUILD_LLVMIR: $BUILD_LLVMIR"
-print ""
+
+show_build_matrix
 
 
 if [[ "$LINUX_32" == true || "$LINUX_64" == true ]]; then
   # Linux builds
   if [[ "$LINUX_32" == true ]]; then
     build_icu "$LINUX_CLANG_TARGET_32" "" clang clang++ llvm-ar llvm-ranlib "" "-O2 -m32" "-O2 -m32"
+    if [[ "$BUILD_LLVMIR" == true && "$LLVMIR32" == true ]]; then
+      build_llvm_ir_variant 32
+    fi
   fi
   if [[ "$LINUX_64" == true ]]; then
     build_icu "$LINUX_CLANG_TARGET_64" "" clang clang++ llvm-ar llvm-ranlib "" "-O2"      "-O2"
-  fi
-
-  if [[ "$BUILD_LLVMIR" == true ]]; then
-    build_llvm_ir_variant 32
-    build_llvm_ir_variant 64
+    if [[ "$BUILD_LLVMIR" == true && "$LLVMIR64" == true ]]; then
+      build_llvm_ir_variant 64
+    fi
   fi
 fi
 
@@ -365,20 +362,18 @@ if [[ "$BUILD_WASM" == true ]]; then
 
   if [[ "$WASM32" == true ]]; then
     build_icu "wasm32" wasm32 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_32"
+    
+    if [[ "$BUILD_LLVMIR" == true && "$LLVMIR32" == true ]]; then
+      build_wasm_llvm_ir_variant 32
+    fi
   fi
   if [[ "$WASM64" == true ]]; then
     build_icu "wasm64" wasm64 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_64"
+    
+    if [[ "$BUILD_LLVMIR" == true && "$LLVMIR64" == true ]]; then
+      build_wasm_llvm_ir_variant 64
+    fi
   fi
-
-  build_wasm_llvm_ir_variant
-fi
-
-# LLVM IR builds
-if [[ "$LLVMIR32" == true ]]; then
-  build_wasm_llvm_ir_variant 32
-fi
-if [[ "$LLVMIR64" == true ]]; then
-  build_wasm_llvm_ir_variant 64
 fi
 
 print_status "✅ ICU build is all complete."
