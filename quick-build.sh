@@ -4,6 +4,13 @@ set -e
 # set -x
 set -o pipefail
 
+# Only allow quick build on Linux
+UNAME_S=$(uname -s)
+if [[ "$UNAME_S" != "Linux" ]]; then
+  echo -e "\033[1;31mERROR: quick-build.sh is only supported on Linux.\033[0m"
+  exit 1
+fi
+
 DISTDIR=dist
 BUILDLOG="$DISTDIR/build.log"
 

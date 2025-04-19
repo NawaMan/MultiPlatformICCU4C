@@ -108,16 +108,16 @@ if [[ $QUICK_BUILD == true ]]; then
     Darwin)
       BUILD_CLANG=true
       case "$UNAME_M" in
-        x86_64) MACOSX86=true ;;
-        arm64)  MACOSARM64=true ;;
+        x86_64) MACOSX86=true    ; LINUX_64=true ;;
+        arm64)  MACOSARM64=true  ; LINUX_64=true ;;
         *)      echo "Unsupported macOS architecture: $UNAME_M"; exit 1 ;;
       esac ;;
     MINGW*|MSYS*|CYGWIN*)
       BUILD_CLANG=true
       BUILD_WINDOWS=true
       case "$UNAME_M" in
-        x86_64)      WINDOWS_64=true ;;
-        i686 | i386) WINDOWS_32=true ;;
+        x86_64)      WINDOWS_64=true ; LINUX_64=true ;;
+        i686 | i386) WINDOWS_32=true ; LINUX_32=true ;;
         *)           echo "Unsupported Windows architecture: $UNAME_M"; exit 1 ;;
       esac ;;
     *) echo "Unsupported OS: $UNAME_S"; exit 1 ;;

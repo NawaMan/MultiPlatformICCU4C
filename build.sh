@@ -6,7 +6,7 @@
 # build.sh: Cross-compile ICU4C as static library for multiple platforms
 
 set -e
-# set -x
+set -x
 set -o pipefail
 
 if [[ "$1" == "--help" ]]; then
@@ -38,8 +38,12 @@ for arg in "$@"; do
   esac
 done
 
-
-
+# Disallow quick build on non-Linux
+UNAME_S=$(uname -s)
+if [[ "$QUICK_BUILD" == "true" && "$UNAME_S" != "Linux" ]]; then
+  echo -e "\033[1;31mERROR: quick build (--quick) is only supported on Linux.\033[0m"
+  exit 1
+fi
 
 WORKDIR=$(pwd)/build
 DISTDIR=$(pwd)/dist
@@ -282,12 +286,8 @@ build_llvm_ir_variant() {
   fi
   
   mkdir -p "$LLVM_KIT_DIR/llvm-ir" "$LLVM_KIT_DIR/llvm-bc"
-  echo rsync -a "$LLVM_IR_DIR/" "$LLVM_KIT_DIR/llvm-ir/"
   rsync -a "$LLVM_IR_DIR/" "$LLVM_KIT_DIR/llvm-ir/"
-  echo rsync -a "$LLVM_BC_DIR/" "$LLVM_KIT_DIR/llvm-bc/"
   rsync -a "$LLVM_BC_DIR/" "$LLVM_KIT_DIR/llvm-bc/"
-  echo rsync -a "$DISTDIR/$LINUX_CLANG_TARGET/include/" "$LLVM_KIT_DIR/include/"
-  echo DISTDIR: "$DISTDIR/"
   rsync -a "$DISTDIR/$LINUX_CLANG_TARGET/include/" "$LLVM_KIT_DIR/include/"
 
   # Add helper scripts
