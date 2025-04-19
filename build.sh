@@ -6,7 +6,7 @@
 # build.sh: Cross-compile ICU4C as static library for multiple platforms
 
 set -e
-set -x
+# set -x
 set -o pipefail
 
 if [[ "$1" == "--help" ]]; then
