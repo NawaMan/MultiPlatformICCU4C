@@ -8,6 +8,7 @@ set -o pipefail
 UNAME_S=$(uname -s)
 if [[ "$UNAME_S" != "Linux" ]]; then
   echo -e "\033[1;31mERROR: quick-build.sh is only supported on Linux.\033[0m"
+  echo -e "Please use full-build.sh for Windows or mac-build.sh for macOS."
   exit 1
 fi
 
