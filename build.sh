@@ -97,9 +97,12 @@ fi
 
 print_section "Check compiler version"
 ACTUAL_CLANG_VERSION=$(clang --version | grep -o 'clang version [0-9]\+' | awk '{print $3}')
-if [[ $BUILD_CLANG -eq 1 && $IGNORE_COMPILER_VERSION -eq 0 ]]; then
-  [[ $ACTUAL_CLANG_VERSION != $CLANG_VERSION* ]] && exit_with_error "Clang version $CLANG_VERSION.x required, found $ACTUAL_CLANG_VERSION."
+if [[ $BUILD_CLANG == "true" && $IGNORE_COMPILER_VERSION -eq 0 ]]; then
+  if [[ "${ACTUAL_CLANG_VERSION%%.*}" != "$CLANG_VERSION" ]]; then
+    exit_with_error "Clang version $CLANG_VERSION.x required, found $ACTUAL_CLANG_VERSION."
+  fi
 fi
+
 LINUX_CLANG_TARGET_32="linux-x86_32-clang-${ACTUAL_CLANG_VERSION%%.*}"
 LINUX_CLANG_TARGET_64="linux-x86_64-clang-${ACTUAL_CLANG_VERSION%%.*}"
 
