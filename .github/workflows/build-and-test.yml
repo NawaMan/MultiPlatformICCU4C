@@ -1,0 +1,57 @@
+name: Build and Test ICU4C
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  build-and-test-linux-x86_64:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ICU4C for Linux x86_64
+        run: |
+          # Set environment variables
+          export ICU_VERSION=77.1
+          export CLANG_VERSION=20
+          export BUILD_CLANG=1
+          export LINUX_64=1
+          
+          # Build ICU4C
+          ./build.sh
+          
+          # Verify the package exists
+          ls -la icu4c-${ICU_VERSION}-linux-x86_64-clang-${CLANG_VERSION}.zip
+
+      - name: Run tests for Linux x86_64
+        run: |
+          cd test/test-linux-x86_64
+          docker build --no-cache -t icu4c-test-linux-x86_64 .
+          docker run --rm icu4c-test-linux-x86_64
+
+      - name: Upload Linux x86_64 package
+        uses: actions/upload-artifact@v4
+        with:
+          name: icu4c-linux-x86_64
+          path: icu4c-*.zip
+          retention-days: 7
+
+  # Add more jobs for other platforms as needed
+  # For example:
+  # build-and-test-windows-x86_64:
+  #   runs-on: windows-latest
+  #   steps:
+  #     ...
+
+  # build-and-test-wasm:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     ...
