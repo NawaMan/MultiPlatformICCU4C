@@ -152,6 +152,24 @@ build_icu() {
   make -j$(nproc)   >> "$BUILDLOG" 2>&1
   make install      >> "$BUILDLOG" 2>&1
 
+  # Copy ICU headers to the install directory
+  print "📋 Copying ICU headers to package..."
+  mkdir -p "$INSTALL_DIR/include/unicode"
+  
+  # Copy headers directly from source directories
+  for module in common i18n io layout layoutex; do
+    if [ -d "$WORKDIR/icu/source/$module" ]; then
+      print "  - Copying $module headers"
+      find "$WORKDIR/icu/source/$module" -name "*.h" -exec cp {} "$INSTALL_DIR/include/unicode/" \;
+    fi
+  done
+  
+  # Check if headers were copied successfully
+  header_count=$(find "$INSTALL_DIR/include/unicode" -name "*.h" | wc -l)
+  print "  - Copied $header_count header files"
+
+  # Create the zip file from the install directory
+  cd "$INSTALL_DIR"
   zip -r "$ZIP_FILE" ./  >> "$BUILDLOG" 2>&1
   print "✅ Created $ZIP_FILE"
   chmod -R ugo+rwx "$DISTDIR"

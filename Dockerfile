@@ -29,7 +29,6 @@ RUN apt-get update && apt-get install -y \
     binutils-mingw-w64 \
     bison \
     build-essential \
-    clang-${CLANG_VERSION} \
     cmake \
     coreutils \
     curl \
@@ -38,14 +37,10 @@ RUN apt-get update && apt-get install -y \
     g++-mingw-w64 \
     gcc-multilib \
     git \
-    libc++-${CLANG_VERSION}-dev \
-    libc++abi-${CLANG_VERSION}-dev \
     libc6-dev-i386 \
     libstdc++-13-dev:i386 \
     libtool \
     libxml2-dev \
-    lld-${CLANG_VERSION} \
-    llvm-${CLANG_VERSION} \
     mingw-w64 \
     nodejs \
     npm \
@@ -61,10 +56,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create symlinks for clang and LLVM tools to be available without version suffix
-RUN update-alternatives    --install /usr/bin/clang   clang   /usr/bin/clang-${CLANG_VERSION}   100 \
-    && update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${CLANG_VERSION} 100 \
-    && ln -sf /usr/bin/llvm-ar-${CLANG_VERSION}     /usr/bin/llvm-ar                                \
-    && ln -sf /usr/bin/llvm-ranlib-${CLANG_VERSION} /usr/bin/llvm-ranlib
+RUN update-alternatives --install /usr/bin/clang   clang   /usr/bin/clang-${CLANG_VERSION}   100 \
+ && update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${CLANG_VERSION} 100 \
+ && ln -sf /usr/bin/llvm-ar-${CLANG_VERSION}     /usr/bin/llvm-ar                                \
+ && ln -sf /usr/bin/llvm-ranlib-${CLANG_VERSION} /usr/bin/llvm-ranlib
 
 # Set up working directory
 WORKDIR /app
@@ -73,7 +68,7 @@ WORKDIR /app
 COPY build.sh      /app/
 COPY versions.env  /app/
 COPY common.source /app/
-COPY artifacts /app/artifacts
+COPY artifacts     /app/artifacts
 
 # Make the script executable
 RUN chmod +x /app/build.sh
