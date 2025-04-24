@@ -63,7 +63,7 @@ echo "Building test program..."
 make
 
 # Run the test program
-echo "\nRunning ICU test program:\n"
+echo -e "\nRunning ICU test program:\n"
 ./icu_test
 
-echo "\nTest completed successfully!"
+echo -e "\nTest completed successfully!"

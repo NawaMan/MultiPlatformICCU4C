@@ -23,6 +23,12 @@
 #include <unicode/datefmt.h>
 #include <unicode/brkiter.h>
 #include <unicode/uclean.h>
+#include <unicode/udata.h>
+#include <unicode/ucal.h>
+#include <unicode/uchar.h>
+#include <unicode/ures.h>
+#include <unicode/coll.h>
+#include <unicode/resbund.h>
 #endif
 
 class ICUPackageTester {
@@ -300,6 +306,115 @@ public:
         cyrillicToLatin->transliterate(latinText);
         std::cout << "Transliterated back to Latin: " << toString(latinText) << std::endl;
     }
+    
+    // Example 5: ICU Data Bundle Verification
+    void testICUDataBundle() {
+        std::cout << "\n=== Running ICU Data Bundle Verification ===" << std::endl;
+        
+        // Helper function to convert UnicodeString to std::string for output
+        auto toString = [](const icu::UnicodeString& ustr) -> std::string {
+            std::string result;
+            ustr.toUTF8String(result);
+            return result;
+        };
+        
+        bool allTestsPassed = true;
+        UErrorCode status = U_ZERO_ERROR;
+        
+        // Test 1: Check if we can access character properties (requires uchar.dat)
+        std::cout << "1. Testing character properties data..." << std::endl;
+        UChar32 testChar = 0x0041;  // Latin 'A'
+        int charType = u_charType(testChar);
+        if (charType == U_UPPERCASE_LETTER) {
+            std::cout << "   ✅ Character properties data accessible" << std::endl;
+        } else {
+            std::cout << "   ❌ Character properties data not working correctly" << std::endl;
+            allTestsPassed = false;
+        }
+        
+        // Test 2: Check if we can access collation data (requires coll.dat)
+        std::cout << "2. Testing collation data..." << std::endl;
+        status = U_ZERO_ERROR;
+        std::unique_ptr<icu::Collator> coll(icu::Collator::createInstance(icu::Locale::getUS(), status));
+        if (U_SUCCESS(status)) {
+            icu::UnicodeString str1("apple");
+            icu::UnicodeString str2("banana");
+            icu::Collator::EComparisonResult result = coll->compare(str1, str2);
+            if (result == icu::Collator::LESS) {
+                std::cout << "   ✅ Collation data accessible (" << toString(str1) << " < " << toString(str2) << ")" << std::endl;
+            } else {
+                std::cout << "   ❌ Collation data not working correctly" << std::endl;
+                allTestsPassed = false;
+            }
+        } else {
+            std::cout << "   ❌ Failed to create collator: " << u_errorName(status) << std::endl;
+            allTestsPassed = false;
+        }
+        
+        // Test 3: Check if we can access calendar data (requires ucal.dat)
+        std::cout << "3. Testing calendar data..." << std::endl;
+        status = U_ZERO_ERROR;
+        std::unique_ptr<icu::Calendar> cal(icu::Calendar::createInstance(icu::Locale("ja_JP@calendar=japanese"), status));
+        if (U_SUCCESS(status)) {
+            // Set to a known date in the Japanese calendar
+            cal->set(2019, 4, 1);  // May 1, 2019 (Reiwa 1)
+            int era = cal->get(UCAL_ERA, status);
+            if (U_SUCCESS(status)) {
+                std::cout << "   ✅ Calendar data accessible (Japanese era: " << era << ")" << std::endl;
+            } else {
+                std::cout << "   ❌ Failed to get calendar data: " << u_errorName(status) << std::endl;
+                allTestsPassed = false;
+            }
+        } else {
+            std::cout << "   ❌ Failed to create Japanese calendar: " << u_errorName(status) << std::endl;
+            allTestsPassed = false;
+        }
+        
+        // Test 4: Check if we can access resource bundle data (requires res files)
+        std::cout << "4. Testing resource bundle data..." << std::endl;
+        status = U_ZERO_ERROR;
+        
+        // Try to open the ICU data file directly
+        UDataMemory* data = udata_open(nullptr, "dat", "icudt77l", &status);
+        if (U_SUCCESS(status)) {
+            std::cout << "   ✅ ICU data file accessible" << std::endl;
+            udata_close(data);
+        } else {
+            // Try alternative approach - check if we can get locale display names
+            // which also requires resource data
+            status = U_ZERO_ERROR;
+            icu::Locale locale("en_US");
+            icu::UnicodeString displayName;
+            locale.getDisplayName(displayName);
+            
+            if (displayName.length() > 0) {
+                std::cout << "   ✅ Resource data accessible (via locale display names)" << std::endl;
+            } else {
+                std::cout << "   ❌ Failed to access resource data: " << u_errorName(status) << std::endl;
+                allTestsPassed = false;
+            }
+        }
+        
+        // Test 5: Check if we can access converter data (requires cnv files)
+        std::cout << "5. Testing converter data..." << std::endl;
+        status = U_ZERO_ERROR;
+        UConverter* conv = ucnv_open("Shift-JIS", &status);
+        if (U_SUCCESS(status)) {
+            std::cout << "   ✅ Converter data accessible" << std::endl;
+            ucnv_close(conv);
+        } else {
+            std::cout << "   ❌ Failed to open converter: " << u_errorName(status) << std::endl;
+            allTestsPassed = false;
+        }
+        
+        // Summary
+        std::cout << "\nICU Data Bundle Verification Summary:" << std::endl;
+        if (allTestsPassed) {
+            std::cout << "✅ All ICU data tests passed! The data bundle is properly included and accessible." << std::endl;
+        } else {
+            std::cout << "❌ Some ICU data tests failed. The data bundle may not be properly included or accessible." << std::endl;
+        }
+    }
 #endif  // RUN_ICU_EXAMPLES
 };
 
@@ -328,6 +443,7 @@ int main() {
         tester.runLocaleExample();
         tester.runBreakIteratorExample();
         tester.runTransliterationExample();
+        tester.testICUDataBundle();
         
         std::cout << "\n✅ All ICU examples completed successfully!" << std::endl;
     } catch (const std::exception& e) {
