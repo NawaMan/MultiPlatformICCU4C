@@ -49,10 +49,28 @@ docker build --no-cache \
     --build-arg CLANG_VERSION=$CLANG_VERSION \
     -t icu4c-test-linux-x86_64 .
 
-# Run the container with the ICU package mounted as a volume
+# Run the container with volumes for ICU package and shared test files
 echo -e "\n${YELLOW}=== Running ICU4C tests ===${NC}"
+
+# Ensure shared test files are available
+SHARED_TEST_CPP="$SCRIPT_DIR/../test.cpp"
+SHARED_CMAKE="$SCRIPT_DIR/../CMakeLists.txt"
+
+if [[ ! -f "$SHARED_TEST_CPP" ]]; then
+    echo -e "${YELLOW}Error: Shared test.cpp not found at $SHARED_TEST_CPP${NC}"
+    exit 1
+fi
+
+if [[ ! -f "$SHARED_CMAKE" ]]; then
+    echo -e "${YELLOW}Error: Shared CMakeLists.txt not found at $SHARED_CMAKE${NC}"
+    exit 1
+fi
+
+# Run the container with all necessary volumes
 docker run --rm \
     -v "$ICU_PACKAGE:/app/icu4c-${ICU_VERSION}-linux-x86_64-clang-${CLANG_VERSION}.zip:ro" \
+    -v "$SHARED_TEST_CPP:/app/test.cpp:ro" \
+    -v "$SHARED_CMAKE:/app/CMakeLists.txt.common:ro" \
     icu4c-test-linux-x86_64
 
 echo -e "\n${GREEN}✅ Tests completed successfully!${NC}"

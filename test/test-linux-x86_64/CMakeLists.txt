@@ -1,63 +1,17 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.14)
 project(ICU_Test)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Set platform-specific ICU directory
+set(ICU_ROOT ${CMAKE_SOURCE_DIR}/icu)
 
-# Set ICU directory
-set(ICU_DIR ${CMAKE_SOURCE_DIR}/icu)
+# Additional Linux-specific settings (if needed)
+set(BUILD_SHARED_LIBS OFF)  # Use static libraries for Linux
 
-# Enable ICU examples now that we have a newer Ubuntu version
-option(ENABLE_ICU_EXAMPLES "Enable ICU examples" ON)
-
-# Check if ICU headers exist
-if(EXISTS "${ICU_DIR}/include/unicode/uversion.h" AND
-   EXISTS "${ICU_DIR}/include/unicode/unistr.h")
-    message(STATUS "ICU headers found.")
-    set(ICU_HEADERS_FOUND TRUE)
+# Include the shared CMakeLists.txt from the parent directory
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../CMakeLists.txt")
+    include(${CMAKE_CURRENT_SOURCE_DIR}/../CMakeLists.txt)
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt.common")
+    include(${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt.common)
 else()
-    message(STATUS "ICU headers not found.")
-    set(ICU_HEADERS_FOUND FALSE)
+    message(FATAL_ERROR "Could not find common CMakeLists.txt")
 endif()
-
-# Create executable
-add_executable(icu_test test.cpp)
-
-# Include ICU headers and link libraries if examples are enabled
-if(ENABLE_ICU_EXAMPLES AND ICU_HEADERS_FOUND)
-    # Include ICU headers
-    include_directories(${ICU_DIR}/include)
-    
-    # Add necessary compiler flags for static ICU
-    target_compile_definitions(icu_test PRIVATE
-        U_STATIC_IMPLEMENTATION
-        RUN_ICU_EXAMPLES
-    )
-    
-    # Add compiler flags to handle C23 compatibility issues
-    target_compile_options(icu_test PRIVATE
-        -D_GNU_SOURCE
-        -fPIC
-    )
-    
-    # Use a simpler approach for linking ICU libraries
-    # First link the system libraries that ICU depends on
-    target_link_libraries(icu_test pthread dl m stdc++)
-    
-    # Then link the ICU libraries in the correct order
-    target_link_libraries(icu_test
-        -Wl,--whole-archive
-        ${ICU_DIR}/lib/libicudata.a
-        -Wl,--no-whole-archive
-        ${ICU_DIR}/lib/libicui18n.a
-        ${ICU_DIR}/lib/libicuuc.a
-        ${ICU_DIR}/lib/libicuio.a)
-    
-    message(STATUS "ICU examples enabled")
-    message(STATUS "Found ICU libraries: ${ICU_LIBS}")
-else()
-    message(STATUS "ICU examples disabled")
-endif()
-
-# Print ICU directory for debugging
-message(STATUS "ICU directory: ${ICU_DIR}")

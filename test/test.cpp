@@ -2,6 +2,9 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <filesystem>
+#include <cstdlib>
+#include <cstring>
 
 // Only include memory when needed for ICU examples
 #ifdef RUN_ICU_EXAMPLES
@@ -31,9 +34,39 @@
 #include <unicode/resbund.h>
 #endif
 
+// Platform-specific path separators and extensions
+#ifdef _WIN32
+    const char PATH_SEP = '\\';
+    const std::string LIB_PREFIX = "";
+    const std::string LIB_EXT = ".lib";
+    const std::string EXE_EXT = ".exe";
+#else
+    const char PATH_SEP = '/';
+    const std::string LIB_PREFIX = "lib";
+    #ifdef __APPLE__
+        const std::string LIB_EXT = ".dylib";
+    #else
+        const std::string LIB_EXT = ".a";
+    #endif
+    const std::string EXE_EXT = "";
+#endif
+
 class ICUPackageTester {
 private:
     bool all_requirements_met = true;
+    std::string icu_root;
+    
+    // Construct platform-specific path
+    std::string buildPath(const std::vector<std::string>& components) {
+        std::string result;
+        for (size_t i = 0; i < components.size(); ++i) {
+            result += components[i];
+            if (i < components.size() - 1) {
+                result += PATH_SEP;
+            }
+        }
+        return result;
+    }
     
     // Check if a file exists and get its size
     std::pair<bool, long> checkFile(const std::string& path) {
@@ -47,17 +80,51 @@ private:
         return {false, 0};
     }
     
+    // Count files with a specific extension in a directory (recursively)
+    int countFiles(const std::string& directory, const std::string& extension) {
+        int count = 0;
+        try {
+            for (const auto& entry : std::filesystem::recursive_directory_iterator(directory)) {
+                if (entry.is_regular_file() && entry.path().extension() == extension) {
+                    count++;
+                }
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Error counting files: " << e.what() << std::endl;
+        }
+        return count;
+    }
+    
+    // List a sample of files with a specific extension in a directory
+    std::vector<std::string> listSampleFiles(const std::string& directory, const std::string& extension, int maxSamples = 5) {
+        std::vector<std::string> files;
+        try {
+            for (const auto& entry : std::filesystem::recursive_directory_iterator(directory)) {
+                if (entry.is_regular_file() && entry.path().extension() == extension) {
+                    files.push_back(entry.path().string());
+                    if (files.size() >= maxSamples) break;
+                }
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Error listing files: " << e.what() << std::endl;
+        }
+        return files;
+    }
+    
 public:
+    // Constructor takes ICU root path
+    ICUPackageTester(const std::string& icuRoot) : icu_root(icuRoot) {}
+    
     // Test if the ICU package is properly installed
     bool testPackage() {
         std::cout << "\n===== ICU4C Package Verification =====" << std::endl;
         
-        // Check libraries
-        const std::vector<std::string> libraries = {
-            "/app/icu/lib/libicuuc.a",
-            "/app/icu/lib/libicudata.a",
-            "/app/icu/lib/libicui18n.a",
-            "/app/icu/lib/libicuio.a"
+        // Build library paths
+        std::vector<std::string> libraries = {
+            buildPath({icu_root, "lib", LIB_PREFIX + "icuuc" + LIB_EXT}),
+            buildPath({icu_root, "lib", LIB_PREFIX + "icudata" + LIB_EXT}),
+            buildPath({icu_root, "lib", LIB_PREFIX + "icui18n" + LIB_EXT}),
+            buildPath({icu_root, "lib", LIB_PREFIX + "icuio" + LIB_EXT})
         };
         
         std::cout << "\nChecking ICU libraries:" << std::endl;
@@ -73,30 +140,40 @@ public:
         
         // Check essential headers
         std::cout << "\nChecking ICU headers:" << std::endl;
-        const std::vector<std::string> headers = {
-            "/app/icu/include/unicode/uversion.h",
-            "/app/icu/include/unicode/unistr.h",
-            "/app/icu/include/unicode/ucnv.h",
-            "/app/icu/include/unicode/ubrk.h"
+        std::vector<std::string> headers = {
+            buildPath({icu_root, "include", "unicode", "uversion.h"}),
+            buildPath({icu_root, "include", "unicode", "unistr.h"}),
+            buildPath({icu_root, "include", "unicode", "ucnv.h"}),
+            buildPath({icu_root, "include", "unicode", "ubrk.h"})
         };
         
         for (const auto& header : headers) {
             auto [exists, _] = checkFile(header);
             if (exists) {
-                std::cout << "✅ Found " << header.substr(header.find_last_of('/') + 1) << std::endl;
+                // Extract just the filename from the path
+                size_t lastSep = header.find_last_of("/\\");
+                std::string filename = (lastSep != std::string::npos) ? header.substr(lastSep + 1) : header;
+                std::cout << "✅ Found " << filename << std::endl;
             } else {
-                std::cout << "❌ Missing " << header.substr(header.find_last_of('/') + 1) << std::endl;
+                size_t lastSep = header.find_last_of("/\\");
+                std::string filename = (lastSep != std::string::npos) ? header.substr(lastSep + 1) : header;
+                std::cout << "❌ Missing " << filename << std::endl;
                 all_requirements_met = false;
             }
         }
         
-        // Count total headers
+        // Count total headers using filesystem
+        std::string headerDir = buildPath({icu_root, "include", "unicode"});
+        int headerCount = countFiles(headerDir, ".h");
         std::cout << "\nCounting ICU headers:" << std::endl;
-        system("find /app/icu/include/unicode -name \"*.h\" | wc -l");
+        std::cout << headerCount << std::endl;
         
         // List some headers
         std::cout << "\nSample ICU headers:" << std::endl;
-        system("find /app/icu/include/unicode -name \"*.h\" | sort | head -5");
+        auto sampleHeaders = listSampleFiles(headerDir, ".h", 5);
+        for (const auto& header : sampleHeaders) {
+            std::cout << header << std::endl;
+        }
         
         // Summary
         if (all_requirements_met) {
@@ -418,10 +495,23 @@ public:
 #endif  // RUN_ICU_EXAMPLES
 };
 
-int main() {
+int main(int argc, char* argv[]) {
     std::cout << "Testing ICU4C package..." << std::endl;
     
-    ICUPackageTester tester;
+    // Get ICU root path from environment variable or command line argument
+    std::string icuRoot = "/app/icu";  // Default path for Linux Docker container
+    
+    // Check environment variable first
+    const char* envPath = std::getenv("ICU_ROOT");
+    if (envPath != nullptr && strlen(envPath) > 0) {
+        icuRoot = envPath;
+    }
+    // Then check command line argument (overrides environment variable)
+    else if (argc > 1) {
+        icuRoot = argv[1];
+    }
+    
+    ICUPackageTester tester(icuRoot);
     bool packageOk = tester.testPackage();
     
     if (!packageOk) {

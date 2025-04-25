@@ -56,8 +56,42 @@ cd /app/build
 
 # Configure and build the test program
 echo "Configuring with CMake..."
-# Enable ICU examples with the newer Ubuntu version
-cmake -DENABLE_ICU_EXAMPLES=ON ..
+# Ensure the common CMakeLists.txt is properly linked
+if [ -f "/app/common_cmake.txt" ]; then
+    # Rename the common CMakeLists.txt to match what's expected in the include statement
+    cp /app/common_cmake.txt /app/CMakeLists.txt.common
+    # Set ICU_ROOT environment variable for the test
+    export ICU_ROOT="/app/icu"
+fi
+
+# Create a custom CMake toolchain file to handle ICU library linking properly
+cat > /app/icu_toolchain.cmake << 'EOF'
+set(CMAKE_C_COMPILER "clang")
+set(CMAKE_CXX_COMPILER "clang++")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fPIC -D_GNU_SOURCE")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -fPIC -D_GNU_SOURCE")
+
+# Force static linking for ICU
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++ -static-libgcc")
+
+# Define ICU linking helper function
+function(target_link_icu TARGET)
+  target_compile_definitions(${TARGET} PRIVATE U_STATIC_IMPLEMENTATION)
+  # Link ICU libraries in the correct order with proper flags
+  target_link_libraries(${TARGET}
+    -Wl,--whole-archive
+    /app/icu/lib/libicudata.a
+    -Wl,--no-whole-archive
+    /app/icu/lib/libicui18n.a
+    /app/icu/lib/libicuuc.a
+    /app/icu/lib/libicuio.a
+    pthread dl m stdc++)
+endfunction()
+EOF
+
+# Enable ICU examples with our custom toolchain
+cmake -DCMAKE_TOOLCHAIN_FILE=/app/icu_toolchain.cmake -DENABLE_ICU_EXAMPLES=ON ..
 
 echo "Building test program..."
 make

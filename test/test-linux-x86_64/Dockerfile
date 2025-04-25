@@ -44,9 +44,10 @@ ENV CFLAGS="-std=c11 -fPIC"
 # The ICU package will be mounted from the host at runtime
 # We'll use a volume mount in the run.sh script
 
-# Create test files
-COPY ./test.cpp       /app/
+# Copy test files
 COPY ./CMakeLists.txt /app/
+# Note: The shared test.cpp and common CMakeLists.txt will be mounted at runtime
+# We don't copy them here to avoid issues with Docker build context
 
 # Build and run commands will be provided in a separate script
 COPY ./in-docker-run-test.sh /app/
