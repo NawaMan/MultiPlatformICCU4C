@@ -49,8 +49,8 @@ COPY ./test.cpp       /app/
 COPY ./CMakeLists.txt /app/
 
 # Build and run commands will be provided in a separate script
-COPY ./run-test.sh /app/
-RUN chmod +x /app/run-test.sh
+COPY ./in-docker-run-test.sh /app/
+RUN chmod +x /app/in-docker-run-test.sh
 
 # Default command
-CMD ["/bin/bash", "/app/run-test.sh"]
+CMD ["/bin/bash", "/app/in-docker-run-test.sh"]

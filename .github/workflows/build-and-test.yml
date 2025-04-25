@@ -19,29 +19,25 @@ jobs:
 
       - name: Build ICU4C for Linux x86_64
         run: |
-          # Set environment variables
-          export ICU_VERSION=77.1
-          export CLANG_VERSION=20
-          export BUILD_CLANG=1
-          export LINUX_64=1
+          # Create necessary directories
+          mkdir -p dist
+          touch dist/build.log
           
-          # Build ICU4C
-          ./build.sh
-          
-          # Verify the package exists
-          ls -la icu4c-${ICU_VERSION}-linux-x86_64-clang-${CLANG_VERSION}.zip
+          # Run the full build script
+          ./full-build.sh
 
       - name: Run tests for Linux x86_64
         run: |
           cd test/test-linux-x86_64
-          docker build --no-cache -t icu4c-test-linux-x86_64 .
-          docker run --rm icu4c-test-linux-x86_64
+          ./run.sh
 
-      - name: Upload Linux x86_64 package
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: icu4c-linux-x86_64
-          path: icu4c-*.zip
+          name: icu4c-build-artifacts
+          path: |
+            dist/build.log
+            dist/*.zip
           retention-days: 7
 
   # Add more jobs for other platforms as needed
