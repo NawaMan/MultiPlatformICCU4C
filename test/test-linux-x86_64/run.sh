@@ -49,8 +49,10 @@ docker build --no-cache \
     --build-arg CLANG_VERSION=$CLANG_VERSION \
     -t icu4c-test-linux-x86_64 .
 
-# Run the container
+# Run the container with the ICU package mounted as a volume
 echo -e "\n${YELLOW}=== Running ICU4C tests ===${NC}"
-docker run --rm icu4c-test-linux-x86_64
+docker run --rm \
+    -v "$ICU_PACKAGE:/app/icu4c-${ICU_VERSION}-linux-x86_64-clang-${CLANG_VERSION}.zip:ro" \
+    icu4c-test-linux-x86_64
 
 echo -e "\n${GREEN}✅ Tests completed successfully!${NC}"

@@ -8,7 +8,7 @@ on:
   workflow_dispatch:  # Allow manual triggering
 
 jobs:
-  build-and-test-linux-x86_64:
+  build-icu4c:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -17,7 +17,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build ICU4C for Linux x86_64
+      - name: Build ICU4C
         run: |
           # Create necessary directories
           mkdir -p dist
@@ -25,11 +25,6 @@ jobs:
           
           # Run the full build script
           ./full-build.sh
-
-      - name: Run tests for Linux x86_64
-        run: |
-          cd test/test-linux-x86_64
-          ./run.sh
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -39,6 +34,27 @@ jobs:
             dist/build.log
             dist/*.zip
           retention-days: 7
+
+  test-linux-x86_64:
+    needs: build-icu4c
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: icu4c-build-artifacts
+          path: dist
+
+      - name: Run tests for Linux x86_64
+        run: |
+          cd test/test-linux-x86_64
+          ./run.sh
 
   # Add more jobs for other platforms as needed
   # For example:

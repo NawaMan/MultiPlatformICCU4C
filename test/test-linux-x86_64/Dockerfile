@@ -41,8 +41,8 @@ ENV ICU_DIR=/app/icu
 ENV CXXFLAGS="-std=c++17 -fPIC"
 ENV CFLAGS="-std=c11 -fPIC"
 
-# We'll copy the ICU package during the build process
-COPY ./icu4c-${ICU_VERSION}-linux-x86_64-clang-${CLANG_VERSION}.zip /app/
+# The ICU package will be mounted from the host at runtime
+# We'll use a volume mount in the run.sh script
 
 # Create test files
 COPY ./test.cpp       /app/
