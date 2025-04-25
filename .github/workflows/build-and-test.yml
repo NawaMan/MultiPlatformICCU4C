@@ -77,14 +77,55 @@ jobs:
           cd test/test-linux-x86_32
           ./run.sh
 
+  test-wasm32:
+    needs: build-icu4c
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: icu4c-build-artifacts
+          path: dist
+
+      - name: Run tests for WebAssembly 32-bit
+        run: |
+          cd test/test-wasm-32
+          ./run.sh
+
+  test-wasm64:
+    needs: build-icu4c
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: icu4c-build-artifacts
+          path: dist
+
+      - name: Run tests for WebAssembly 64-bit
+        run: |
+          cd test/test-wasm-64
+          ./run.sh
+
   # Add more jobs for other platforms as needed
   # For example:
   # build-and-test-windows-x86_64:
   #   runs-on: windows-latest
-  #   steps:
-  #     ...
-
-  # build-and-test-wasm:
-  #   runs-on: ubuntu-latest
   #   steps:
   #     ...
