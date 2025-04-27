@@ -65,11 +65,15 @@ print "BUILDLOG: $BUILDLOG"
 print ""
 
 
-
 print_section "Prepare working directory"
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 
+
+echo "ls -la WORKDIR($WORKDIR)"
+ls -la "$WORKDIR"
+echo "ls -la DISTDIR($DISTDIR)"
+ls -la "$DISTDIR"
 
 
 print_section "Prepare ICU source"

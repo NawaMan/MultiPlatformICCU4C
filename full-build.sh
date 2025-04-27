@@ -32,7 +32,7 @@ echo -e "\033[0;32mDetail build log can be found at: $BUILDLOG\033[0m"
 echo "==========================================================================="
 
 mkdir -p "$WORKDIR"
-mkdir -p  "$DISTDIR"
+mkdir -p "$DISTDIR"
 # chown -R $(id -u):$(id -gn) $DISTDIR
 # chmod g+s $DISTDIR
 # setfacl -d -m g:$(id -gn):rwx $DISTDIR
@@ -73,7 +73,7 @@ docker build . \
 
 
 print_section "Run the container with volume mapping for dist"
-docker run --rm -v "$DISTDIR:/app/dist" -v "$WORKDIR:/app/build" icu4c-builder:latest "$@"
+docker run --rm -v "$WORKDIR:/app/build" -v "$DISTDIR:/app/dist" icu4c-builder:latest "$@"
 
 
 
