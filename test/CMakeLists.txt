@@ -2,8 +2,8 @@
 cmake_minimum_required(VERSION 3.14)
 project(icu4c_test)
 
-# Set C++ standard - using C++17 for std::filesystem support
-set(CMAKE_CXX_STANDARD 17)
+# Set C++ standard - using C++23 for modern features
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Ensure proper handling of different platforms

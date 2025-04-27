@@ -105,8 +105,8 @@ fi
 cat > /app/icu_toolchain.cmake << 'EOF'
 set(CMAKE_C_COMPILER "clang")
 set(CMAKE_CXX_COMPILER "clang++")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fPIC -D_GNU_SOURCE")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -fPIC -D_GNU_SOURCE")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++23 -fPIC -D_GNU_SOURCE")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c23 -fPIC -D_GNU_SOURCE")
 
 # Force static linking for ICU
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)

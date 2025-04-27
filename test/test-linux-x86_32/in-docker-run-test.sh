@@ -82,6 +82,9 @@ else
     exit 1
 fi
 
+# No need for compatibility wrapper when using C++23/C23 standards
+cd /app/icu
+
 # Check library directory
 echo "
 ICU library directory:"
@@ -105,12 +108,12 @@ fi
 cat > /app/icu_toolchain.cmake << 'EOF'
 set(CMAKE_C_COMPILER "clang")
 set(CMAKE_CXX_COMPILER "clang++")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fPIC -D_GNU_SOURCE")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -fPIC -D_GNU_SOURCE")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++23 -fPIC -D_GNU_SOURCE -m32")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c23 -fPIC -D_GNU_SOURCE -m32")
 
 # Force static linking for ICU
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++ -static-libgcc")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++ -static-libgcc -m32")
 
 # Define ICU linking helper function
 function(target_link_icu TARGET)

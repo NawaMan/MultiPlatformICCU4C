@@ -38,8 +38,8 @@ RUN mkdir -p /app/icu
 
 # Set environment variables
 ENV ICU_DIR=/app/icu
-ENV CXXFLAGS="-std=c++17 -fPIC"
-ENV CFLAGS="-std=c11 -fPIC"
+ENV CXXFLAGS="-std=c++23 -fPIC"
+ENV CFLAGS="-std=c23 -fPIC"
 
 # The ICU package will be mounted from the host at runtime
 # We'll use a volume mount in the run.sh script
