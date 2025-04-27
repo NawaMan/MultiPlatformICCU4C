@@ -5,74 +5,144 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # Allow manual triggering
+  workflow_dispatch:
 
 jobs:
-  build-icu4c:
+  build-linux:
+    name: Build Linux (32/64)
+    runs-on: ubuntu-latest
+    outputs:
+      linux-artifact-name: linux-build-artifacts
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Build Linux ICU4C (32/64)
+        run: |
+          mkdir -p dist
+          touch dist/build.log
+          ./build.sh --linux-32 --linux-64
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build-artifacts
+          path: |
+            dist/
+          retention-days: 7
+
+  build-windows:
+    name: Build Windows (32/64)
+    needs: build-linux
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Download Linux build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build-artifacts
+          path: dist
 
-      - name: Build ICU4C
+      - name: Build Windows ICU4C
         run: |
-          # Create necessary directories
-          mkdir -p dist
-          touch dist/build.log
-          
-          # Run the full build script
-          ./full-build.sh
+          ./build.sh --win-32 --win-64
 
-      - name: Upload build artifacts
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: icu4c-build-artifacts
+          name: windows-build-artifacts
           path: |
-            dist/build.log
-            dist/*.zip
+            dist/
+          retention-days: 7
+
+  build-wasm:
+    name: Build WASM (32/64)
+    needs: build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download Linux build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build-artifacts
+          path: dist
+
+      - name: Build WASM ICU4C
+        run: |
+          ./build.sh --wasm-32 --wasm-64
+
+      - name: Upload WASM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-build-artifacts
+          path: |
+            dist/
+          retention-days: 7
+
+  build-llvmir:
+    name: Build LLVM IR (32/64)
+    needs: build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download Linux build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build-artifacts
+          path: dist
+
+      - name: Build LLVM IR
+        run: |
+          ./build.sh --llvm-32 --llvm-64
+
+      - name: Upload LLVM IR artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: llvmir-build-artifacts
+          path: |
+            dist/
           retention-days: 7
 
   test-linux-x86_64:
-    needs: build-icu4c
+    name: Test Linux x86_64
+    needs: build-linux
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Download build artifacts
+      - name: Download Linux build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: icu4c-build-artifacts
+          name: linux-build-artifacts
           path: dist
 
-      - name: Run tests for Linux x86_64
+      - name: Run Linux x86_64 Tests
         run: |
           cd test/test-linux-x86_64
           ./run.sh
 
   test-linux-x86_32:
-    needs: build-icu4c
+    name: Test Linux x86_32
+    needs: build-linux
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Download build artifacts
+      - name: Download Linux build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: icu4c-build-artifacts
+          name: linux-build-artifacts
           path: dist
 
-      - name: Run tests for Linux x86_32
+      - name: Run Linux x86_32 Tests
         run: |
           cd test/test-linux-x86_32
           ./run.sh

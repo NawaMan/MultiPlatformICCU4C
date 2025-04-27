@@ -18,34 +18,61 @@ touch "$BUILDLOG"
 
 # == Common Initialize FUMCTION ==
 
+reset-build-metrics() {
+  VALUE=${1:-false}
+  LINUX_32=$VALUE
+  LINUX_64=$VALUE
+  WINDOWS_32=$VALUE
+  WINDOWS_64=$VALUE
+  MACOSX86=$VALUE
+  MACOSARM64=$VALUE
+  WASM32=$VALUE
+  WASM64=$VALUE
+  LLVMIR32=$VALUE
+  LLVMIR64=$VALUE
+  BUILD_CLANG=$VALUE
+  BUILD_WINDOWS=$VALUE
+  BUILD_WASM=$VALUE
+  BUILD_LLVMIR=$VALUE
+}
+
 common-init() {
   # Load version information
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   source "$SCRIPT_DIR/versions.env"
 
 
-  QUICK_BUILD=${QUICK_BUILD:-false}
+  SELECTIVE=false
+  for arg in "$@"; do
+    case "$arg" in
+      --linux-32)    SELECTIVE=true ;;
+      --linux-64)    SELECTIVE=true ;;
+      --win-32)      SELECTIVE=true ;;
+      --win-64)      SELECTIVE=true ;;
+      --macos-x86)   SELECTIVE=true ;;
+      --macos-arm64) SELECTIVE=true ;;
+      --wasm-32)     SELECTIVE=true ;;
+      --wasm-64)     SELECTIVE=true ;;
+      --llvm-32)     SELECTIVE=true ;;
+      --llvm-64)     SELECTIVE=true ;;
+    esac
+  done
 
-  # Default all build targets to false
-  LINUX_32=false
-  LINUX_64=false
-  WINDOWS_32=false
-  WINDOWS_64=false
-  MACOSX86=false
-  MACOSARM64=false
-  WASM32=false
-  WASM64=false
-  LLVMIR32=false
-  LLVMIR64=false
-  BUILD_CLANG=false
-  BUILD_WINDOWS=false
-  BUILD_WASM=false
-  BUILD_LLVMIR=false
+
+  QUICK_BUILD=${QUICK_BUILD:-false}
+  if [[ $SELECTIVE == true && $QUICK_BUILD == true ]]; then
+    exit_with_error "Selective build with --quick-build is not supported."
+  fi
+  echo "SELECTIVE  : $SELECTIVE"
+  echo "QUICK_BUILD: $QUICK_BUILD"
+
 
   UNAME_S=$(uname -s)
   UNAME_M=$(uname -m)
 
   if [[ $QUICK_BUILD == true ]]; then
+    # Select what to build from the current environment.
+    reset-build-metrics false
     case "$UNAME_S" in
       Linux)
         BUILD_CLANG=true
@@ -71,22 +98,38 @@ common-init() {
         esac ;;
       *) echo "Unsupported OS: $UNAME_S"; exit 1 ;;
     esac
+
+  elif [[ $SELECTIVE == true ]]; then
+    # Selective build
+    reset-build-metrics false
+    for arg in "$@"; do
+      case "$arg" in
+        --linux-32)    LINUX_32=true ;;
+        --linux-64)    LINUX_64=true ;;
+        --win-32)      WINDOWS_32=true ;;
+        --win-64)      WINDOWS_64=true ;;
+        --macos-x86)   MACOSX86=true ;;
+        --macos-arm64) MACOSARM64=true ;;
+        --wasm-32)     WASM32=true ;;
+        --wasm-64)     WASM64=true ;;
+        --llvm-32)     LLVMIR32=true ;;
+        --llvm-64)     LLVMIR64=true ;;
+      esac
+    done
+
+    if [[ "$LINUX_32"   == "true" || "$LINUX_64"   == "true" ]]; then BUILD_CLANG=true   ; else BUILD_CLANG=false;   fi
+    if [[ "$WINDOWS_32" == "true" || "$WINDOWS_64" == "true" ]]; then BUILD_WINDOWS=true ; else BUILD_WINDOWS=false; fi
+    if [[ "$WASM32"     == "true" || "$WASM64"     == "true" ]]; then BUILD_WASM=true    ; else BUILD_WASM=false;    fi
+    if [[ "$LLVMIR32"   == "true" || "$LLVMIR64"   == "true" ]]; then BUILD_LLVMIR=true  ; else BUILD_LLVMIR=false ; fi
+
+    echo "BUILD_CLANG  : $BUILD_CLANG"
+    echo "BUILD_WINDOWS: $BUILD_WINDOWS"
+    echo "BUILD_WASM   : $BUILD_WASM"
+    echo "BUILD_LLVMIR : $BUILD_LLVMIR"
+
   else
     # Full build: enable all targets
-    LINUX_32=true
-    LINUX_64=true
-    WINDOWS_32=true
-    WINDOWS_64=true
-    MACOSX86=true
-    MACOSARM64=true
-    WASM32=true
-    WASM64=true
-    LLVMIR32=true
-    LLVMIR64=true
-    BUILD_CLANG=true
-    BUILD_WINDOWS=true
-    BUILD_WASM=true
-    BUILD_LLVMIR=true
+    reset-build-metrics true
   fi
 }
 
@@ -152,7 +195,7 @@ check_versions_match_changelog() {
   # Validate
   local fail=0
   [[ "$log_clang" != "$CLANG_VERSION" ]] && { echo "❌ CLANG_VERSION mismatch (CHANGELOG=$log_clang, env=$CLANG_VERSION)"; fail=1; }
-  [[ "$log_icu" != "$ICU_VERSION" ]]     && { echo "❌ ICU_VERSION mismatch (CHANGELOG=$log_icu, env=$ICU_VERSION)"; fail=1; }
+  [[ "$log_icu"   != "$ICU_VERSION"   ]] && { echo "❌ ICU_VERSION mismatch (CHANGELOG=$log_icu, env=$ICU_VERSION)";       fail=1; }
   [[ "$log_emsdk" != "$ENSDK_VERSION" ]] && { echo "❌ ENSDK_VERSION mismatch (CHANGELOG=$log_emsdk, env=$ENSDK_VERSION)"; fail=1; }
 
   [[ $fail -eq 1 ]] && {

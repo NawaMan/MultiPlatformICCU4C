@@ -44,7 +44,7 @@ echo "" > "$BUILDLOG"
 QUICK_BUILD=false
 source common-source.sh
 
-common-init
+common-init "$@"
 show-build-matrix
 
 

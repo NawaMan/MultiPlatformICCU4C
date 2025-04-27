@@ -21,7 +21,7 @@ echo "" > "$BUILDLOG"
 # If follows the parameter passed to it: x86_64, arm64, or universal.
 source common-source.sh
 
-common-init
+common-init "$@"
 show-build-matrix
 
 

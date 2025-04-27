@@ -24,7 +24,7 @@ echo "==========================================================================
 QUICK_BUILD=true
 VERBOSE=false
 source common-source.sh
-common-init
+common-init "$@"
 show-build-matrix
 VERBOSE=true
 

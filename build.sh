@@ -25,7 +25,6 @@ PREPARE_ONLY=0
 IGNORE_COMPILER_VERSION=0
 DRY_RUN=false
 
-
 QUICK_BUILD=false
 UNAME_S=""
 UNAME_M=""
@@ -37,6 +36,7 @@ for arg in "$@"; do
     --dry-run)                 DRY_RUN=true              ;;
   esac
 done
+
 
 # Disallow quick build on non-Linux
 UNAME_S=$(uname -s)
@@ -50,7 +50,7 @@ DISTDIR=$(pwd)/dist
 BUILDLOG="$DISTDIR/build.log"
 source common-source.sh
 
-common-init
+common-init "$@"
 
 
 
