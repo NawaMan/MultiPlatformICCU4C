@@ -6,7 +6,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}=== Building ICU4C test container ===${NC}"
+echo -e "${YELLOW}=== Building ICU4C test container (64-bit) ===${NC}"
 
 # Get ICU and Clang versions from environment or use defaults from versions.env
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,9 +28,6 @@ if [[ ! -f "$ICU_PACKAGE" ]]; then
     if [[ "$(uname -s)" == "Linux" ]]; then
         echo -e "Running quick build on Linux..."
         (cd "$ROOT_DIR" && ./build.sh --quick)
-    else
-        echo -e "Running full build..."
-        (cd "$ROOT_DIR" && ./full-build.sh)
     fi
     
     # Check again if the package exists

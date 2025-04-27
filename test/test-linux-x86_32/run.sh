@@ -28,9 +28,6 @@ if [[ ! -f "$ICU_PACKAGE" ]]; then
     if [[ "$(uname -s)" == "Linux" ]]; then
         echo -e "Running build with LINUX_32=true..."
         (cd "$ROOT_DIR" && export LINUX_32=true && ./build.sh)
-    else
-        echo -e "Running full build..."
-        (cd "$ROOT_DIR" && ./full-build.sh)
     fi
     
     # Check again if the package exists
