@@ -3,11 +3,21 @@ set -e
 
 # Extract the ICU package
 echo "Extracting ICU package..."
-rm -rf /app/icu
-mkdir -p /app/icu
+rm -rf /app/icu /app/icu_data
+mkdir -p /app/icu /app/icu_data
 cd /app/icu
 unzip -q /app/icu4c-${ICU_VERSION}-linux-x86_64-clang-${CLANG_VERSION}.zip
 echo "Extraction complete."
+
+# Set up ICU data path - ensure the data file is properly located
+if [ -f "/app/icu/share/icu/${ICU_VERSION}/icudt*l.dat" ]; then
+    echo "Found ICU data file in share/icu/${ICU_VERSION}/"
+    # Create a symlink to make it easier to find
+    mkdir -p /app/icu_data
+    ln -sf /app/icu/share/icu/${ICU_VERSION}/icudt*l.dat /app/icu_data/
+    # Set environment variable for ICU data
+    export ICU_DATA="/app/icu_data"
+fi
 
 # Display the package structure
 echo "ICU package contents:"
@@ -43,6 +53,33 @@ ICU include directory not found. Creating from source..."
     
     echo "Headers copied to include/unicode/"
     ls -la include/unicode | head -10
+fi
+
+# Check for ICU data files
+echo "
+Checking for ICU data file..."
+
+# Check for the ICU data file in the known location
+DATA_FILE="/app/icu/share/icu/${ICU_VERSION}/icudt${ICU_VERSION%%.*}l.dat"
+
+if [ -f "$DATA_FILE" ]; then
+    echo "Found ICU data file: $DATA_FILE"
+    
+    # Create a directory for the data file and set up environment variable
+    mkdir -p /app/icu_data
+    ln -sf "$DATA_FILE" /app/icu_data/
+    export ICU_DATA="/app/icu_data"
+    
+    # Verify the symlink works
+    echo "Verifying ICU data file access:"
+    ls -la /app/icu_data/
+    
+    cd /app/icu
+else
+    echo "ERROR: ICU data file not found at $DATA_FILE"
+    echo "Contents of /app/icu/share/icu/${ICU_VERSION}/ (if it exists):"
+    ls -la /app/icu/share/icu/${ICU_VERSION}/ 2>/dev/null || echo "Directory does not exist"
+    exit 1
 fi
 
 # Check library directory
@@ -90,14 +127,26 @@ function(target_link_icu TARGET)
 endfunction()
 EOF
 
-# Enable ICU examples with our custom toolchain
-cmake -DCMAKE_TOOLCHAIN_FILE=/app/icu_toolchain.cmake -DENABLE_ICU_EXAMPLES=ON ..
+# Enable ICU examples with our custom toolchain and set ICU data path
+cmake -DCMAKE_TOOLCHAIN_FILE=/app/icu_toolchain.cmake -DENABLE_ICU_EXAMPLES=ON -DICU_DATA_DIR=/app/icu_data ..
 
 echo "Building test program..."
 make
 
-# Run the test program
+# Run the test program with ICU_DATA environment variable
 echo -e "\nRunning ICU test program:\n"
+
+# Make sure ICU_DATA is set correctly
+if [ -z "$ICU_DATA" ]; then
+    # If not already set, try to find the data file
+    if [ -f "/app/icu_data/icudt*l.dat" ]; then
+        export ICU_DATA="/app/icu_data"
+    elif [ -f "/app/icu/share/icu/${ICU_VERSION}/icudt*l.dat" ]; then
+        export ICU_DATA="/app/icu/share/icu/${ICU_VERSION}"
+    fi
+fi
+
+echo "Using ICU_DATA=$ICU_DATA"
 ./icu_test
 
 echo -e "\nTest completed successfully!"

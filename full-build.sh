@@ -42,7 +42,12 @@ touch     "$BUILDLOG"
 echo "" > "$BUILDLOG"
 
 QUICK_BUILD=false
-source common.source
+source common-source.sh
+
+common-init
+show-build-matrix
+
+
 
 print "CLANG_VERSION: $CLANG_VERSION"
 print "ICU_VERSION:   $ICU_VERSION"

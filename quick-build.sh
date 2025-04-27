@@ -12,23 +12,26 @@ if [[ "$UNAME_S" != "Linux" ]]; then
   exit 1
 fi
 
-DISTDIR=dist
+WORKDIR=$(pwd)/build
+DISTDIR=$(pwd)/dist
 BUILDLOG="$DISTDIR/build.log"
 
 echo "==========================================================================="
 echo -e "\033[0;32mDetail build log can be found at: $BUILDLOG\033[0m"
 echo "==========================================================================="
 
-rm -Rf "$DISTDIR"
+
+QUICK_BUILD=true
+VERBOSE=false
+source common-source.sh
+common-init
+show-build-matrix
+VERBOSE=true
 
 mkdir -p  "$DISTDIR"
 touch     "$BUILDLOG"
 echo "" > "$BUILDLOG"
 
-QUICK_BUILD=true
-VERBOSE=false
-source common.source
-VERBOSE=true
 
 
 if [[ $MACOSX86 == true ]]; then

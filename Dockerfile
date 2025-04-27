@@ -65,10 +65,10 @@ RUN update-alternatives --install /usr/bin/clang   clang   /usr/bin/clang-${CLAN
 WORKDIR /app
 
 # Copy the build script
-COPY build.sh      /app/
-COPY versions.env  /app/
-COPY common.source /app/
-COPY artifacts     /app/artifacts
+COPY build.sh         /app/
+COPY versions.env     /app/
+COPY common-source.sh /app/
+COPY artifacts        /app/artifacts
 
 # Make the script executable
 RUN chmod +x /app/build.sh

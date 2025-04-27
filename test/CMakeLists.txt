@@ -36,6 +36,27 @@ if(NOT DEFINED ICU_ROOT)
     endif()
 endif()
 
+# ICU data directory for modular data files
+if(NOT DEFINED ICU_DATA_DIR)
+    if(DEFINED ENV{ICU_DATA})
+        set(ICU_DATA_DIR $ENV{ICU_DATA})
+    else()
+        # Check common locations for the ICU data file
+        if(EXISTS "${ICU_ROOT}/share/icu/77.1/icudt77l.dat")
+            set(ICU_DATA_DIR "${ICU_ROOT}/share/icu/77.1")
+        elseif(EXISTS "${ICU_ROOT}/share/icu/current/icudt77l.dat")
+            set(ICU_DATA_DIR "${ICU_ROOT}/share/icu/current")
+        elseif(EXISTS "${ICU_ROOT}/data/icudt77l.dat")
+            set(ICU_DATA_DIR "${ICU_ROOT}/data")
+        else()
+            # Default to a subdirectory of ICU_ROOT
+            set(ICU_DATA_DIR "${ICU_ROOT}/data")
+        endif()
+    endif()
+endif()
+
+message(STATUS "ICU data directory: ${ICU_DATA_DIR}")
+
 message(STATUS "ICU directory: ${ICU_ROOT}")
 
 # Find ICU headers
@@ -101,6 +122,24 @@ if(ENABLE_ICU_EXAMPLES)
     message(STATUS "ICU examples enabled")
 else()
     message(STATUS "ICU examples disabled")
+endif()
+
+# Add ICU data directory definition
+if(EXISTS "${ICU_DATA_DIR}")
+    # Check if the data file exists in the directory
+    file(GLOB ICU_DATA_FILES "${ICU_DATA_DIR}/icudt*l.dat")
+    if(ICU_DATA_FILES)
+        add_definitions(-DICU_DATA_DIR="${ICU_DATA_DIR}")
+        message(STATUS "ICU data file found in: ${ICU_DATA_DIR}")
+    else()
+        message(WARNING "No ICU data file found in ${ICU_DATA_DIR}, looking in other locations")
+        # Try to find the data file in other common locations
+        if(EXISTS "${ICU_ROOT}/share/icu/77.1/icudt77l.dat")
+            set(ICU_DATA_DIR "${ICU_ROOT}/share/icu/77.1")
+            add_definitions(-DICU_DATA_DIR="${ICU_DATA_DIR}")
+            message(STATUS "ICU data file found in: ${ICU_DATA_DIR}")
+        endif()
+    endif()
 endif()
 
 # Add the test executable

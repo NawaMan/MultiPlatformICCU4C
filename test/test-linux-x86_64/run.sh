@@ -40,6 +40,9 @@ if [[ ! -f "$ICU_PACKAGE" ]]; then
     fi
 fi
 
+# The ICU data file is included in the main package at share/icu/77.1/icudt77l.dat
+# No need to check for a separate data package
+
 echo -e "\n${YELLOW}=== Building and running test container ===${NC}"
 echo -e "ICU Package: ${GREEN}$ICU_PACKAGE${NC}"
 
@@ -66,11 +69,12 @@ if [[ ! -f "$SHARED_CMAKE" ]]; then
     exit 1
 fi
 
-# Run the container with all necessary volumes
-docker run --rm \
+VOLUMES="\
     -v "$ICU_PACKAGE:/app/icu4c-${ICU_VERSION}-linux-x86_64-clang-${CLANG_VERSION}.zip:ro" \
     -v "$SHARED_TEST_CPP:/app/test.cpp:ro" \
-    -v "$SHARED_CMAKE:/app/CMakeLists.txt.common:ro" \
+    -v "$SHARED_CMAKE:/app/CMakeLists.txt.common:ro""
+
+docker run --rm $VOLUMES \
     icu4c-test-linux-x86_64
 
 echo -e "\n${GREEN}✅ Tests completed successfully!${NC}"

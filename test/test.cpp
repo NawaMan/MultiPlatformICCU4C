@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 
 /*
  * ICU4C Cross-Platform Test
@@ -24,13 +25,7 @@
  * with appropriate messages indicating the limitation.
  */
 
-// Only include memory when needed for ICU examples
-#ifdef RUN_ICU_EXAMPLES
-#include <memory>
-#endif
-
-// For ICU examples (only included if headers are found)
-#ifdef RUN_ICU_EXAMPLES
+// For ICU functionality
 #include <unicode/uversion.h>
 #include <unicode/unistr.h>
 // Avoid using ustream.h due to linking issues
@@ -50,7 +45,6 @@
 #include <unicode/ures.h>
 #include <unicode/coll.h>
 #include <unicode/resbund.h>
-#endif
 
 // Platform-specific path separators and extensions
 #ifdef _WIN32
@@ -73,6 +67,7 @@ class ICUPackageTester {
 private:
     bool all_requirements_met = true;
     std::string icu_root;
+    std::string icu_data_dir;
     
     // Construct platform-specific path
     std::string buildPath(const std::vector<std::string>& components) {
@@ -130,12 +125,24 @@ private:
     }
     
 public:
-    // Constructor takes ICU root path
-    ICUPackageTester(const std::string& icuRoot) : icu_root(icuRoot) {}
+    // Constructor takes ICU root path and optional ICU data directory
+    ICUPackageTester(const std::string& icuRoot, const std::string& icuDataDir = "") : icu_root(icuRoot), icu_data_dir(icuDataDir) {
+        // Check environment variable for ICU data directory
+        const char* envDataDir = std::getenv("ICU_DATA");
+        if (envDataDir != nullptr && strlen(envDataDir) > 0) {
+            icu_data_dir = envDataDir;
+        }
+    }
     
     // Test if the ICU package is properly installed
     bool testPackage() {
         std::cout << "\n===== ICU4C Package Verification =====" << std::endl;
+        std::cout << "Testing ICU package at: " << icu_root << std::endl;
+        
+        // If ICU data directory is set, display it
+        if (!icu_data_dir.empty()) {
+            std::cout << "ICU data directory: " << icu_data_dir << std::endl;
+        }
         
         // Build library paths
         std::vector<std::string> libraries = {
@@ -205,7 +212,6 @@ public:
         return all_requirements_met;
     }
     
-#ifdef RUN_ICU_EXAMPLES
     // Example 1: Unicode string operations
     void runStringExample() {
         std::cout << "\n=== Running Unicode String Example ===" << std::endl;
@@ -300,12 +306,7 @@ public:
             return result;
         };
         
-#ifdef WASM_ENVIRONMENT
-        // In WASM environment, skip this test as it requires resources not available
-        std::cout << "⚠️ Break Iterator test skipped in WASM environment" << std::endl;
-        std::cout << "  (Reason: Missing resource data for sentence break analysis)" << std::endl;
-        return;
-#endif
+        // Note: This test may have limited functionality in WebAssembly environments
         
         UErrorCode status = U_ZERO_ERROR;
         icu::UnicodeString text("Hello, world! This is a test. How are you? 你好，世界！这是一个测试。");
@@ -375,13 +376,6 @@ public:
             return result;
         };
         
-#ifdef WASM_ENVIRONMENT
-        // In WASM environment, skip this test as it requires resources not available
-        std::cout << "⚠️ Transliteration test skipped in WASM environment" << std::endl;
-        std::cout << "  (Reason: Missing transliteration rules data)" << std::endl;
-        return;
-#endif
-        
         UErrorCode status = U_ZERO_ERROR;
         
         // Create a transliterator for Latin to Cyrillic
@@ -418,7 +412,10 @@ public:
     
     // Example 5: ICU Data Bundle Verification
     void testICUDataBundle() {
-        std::cout << "\n=== Running ICU Data Bundle Verification ===" << std::endl;
+        std::cout << "\n=== ICU Data Bundle Verification ===" << std::endl;
+#ifdef WASM_ENVIRONMENT
+        std::cout << "Note: Some tests will be skipped due to WASM limitations" << std::endl;
+#endif
         
         // Helper function to convert UnicodeString to std::string for output
         auto toString = [](const icu::UnicodeString& ustr) -> std::string {
@@ -427,12 +424,56 @@ public:
             return result;
         };
         
-#ifdef WASM_ENVIRONMENT
-        std::cout << "Note: Some tests will be skipped due to WASM limitations" << std::endl;
-#endif
-        
         bool allTestsPassed = true;
         UErrorCode status = U_ZERO_ERROR;
+        
+        // Check for modular data files if ICU data directory is set
+        if (!icu_data_dir.empty()) {
+            std::cout << "Checking for modular ICU data files in: " << icu_data_dir << std::endl;
+            
+            // Check for core data file
+            std::string coreDataName = "icudt" + std::string(U_ICU_VERSION_SHORT) + "l.dat";
+            auto [coreExists, coreSize] = checkFile(buildPath({icu_data_dir, coreDataName}));
+            if (coreExists) {
+                std::cout << "   ✅ Core ICU data file found (" << coreSize << " bytes)" << std::endl;
+            } else {
+                std::cout << "   ⚠️ Core ICU data file not found" << std::endl;
+            }
+            
+            // Check for locale data files
+            std::vector<std::string> locales = {"en", "fr", "de", "ja", "zh"};
+            int localesFound = 0;
+            
+            std::cout << "Checking for locale data files:" << std::endl;
+            for (const auto& locale : locales) {
+                auto [exists, size] = checkFile(buildPath({icu_data_dir, locale + ".dat"}));
+                if (exists) {
+                    std::cout << "   ✅ " << locale << ".dat found (" << size << " bytes)" << std::endl;
+                    localesFound++;
+                }
+            }
+            
+            // Check for timezone data file
+            auto [tzExists, tzSize] = checkFile(buildPath({icu_data_dir, "timezones.dat"}));
+            if (tzExists) {
+                std::cout << "   ✅ Timezone data file found (" << tzSize << " bytes)" << std::endl;
+            }
+            
+            // Check for calendar data files
+            std::vector<std::string> calendars = {"japanese-calendar", "buddhist-calendar", "hebrew-calendar"};
+            int calendarsFound = 0;
+            
+            std::cout << "Checking for calendar data files:" << std::endl;
+            for (const auto& calendar : calendars) {
+                auto [exists, size] = checkFile(buildPath({icu_data_dir, calendar + ".dat"}));
+                if (exists) {
+                    std::cout << "   ✅ " << calendar << ".dat found (" << size << " bytes)" << std::endl;
+                    calendarsFound++;
+                }
+            }
+            
+            std::cout << "Summary: Found " << localesFound << " locale files and " << calendarsFound << " calendar files" << std::endl;
+        }
         
         // Test 1: Check if we can access character properties (requires uchar.dat)
         std::cout << "1. Testing character properties data..." << std::endl;
@@ -447,51 +488,53 @@ public:
         
         // Test 2: Check if we can access collation data (requires coll.dat)
         std::cout << "2. Testing collation data..." << std::endl;
-#ifdef WASM_ENVIRONMENT
-        std::cout << "   ⚠️ Collation test skipped in WASM environment" << std::endl;
-        std::cout << "      (Reason: Limited locale data in WASM)" << std::endl;
-#else
+        // Note: This test may have limited functionality in WebAssembly environments
         status = U_ZERO_ERROR;
         std::unique_ptr<icu::Collator> coll(icu::Collator::createInstance(icu::Locale::getUS(), status));
         if (U_SUCCESS(status)) {
+            std::cout << "   ✅ Collation data accessible" << std::endl;
+            
+            // Test basic collation functionality
             icu::UnicodeString str1("apple");
             icu::UnicodeString str2("banana");
             icu::Collator::EComparisonResult result = coll->compare(str1, str2);
+            
             if (result == icu::Collator::LESS) {
-                std::cout << "   ✅ Collation data accessible (" << toString(str1) << " < " << toString(str2) << ")" << std::endl;
+                std::cout << "   ✅ Collation comparison works correctly" << std::endl;
             } else {
-                std::cout << "   ❌ Collation data not working correctly" << std::endl;
+                std::cout << "   ❌ Collation comparison failed" << std::endl;
                 allTestsPassed = false;
             }
         } else {
-            std::cout << "   ❌ Failed to create collator: " << u_errorName(status) << std::endl;
+            std::cout << "   ❌ Failed to access collation data: " << u_errorName(status) << std::endl;
             allTestsPassed = false;
         }
-#endif
         
         // Test 3: Check if we can access calendar data (requires ucal.dat)
         std::cout << "3. Testing calendar data..." << std::endl;
-#ifdef WASM_ENVIRONMENT
-        std::cout << "   ⚠️ Calendar test skipped in WASM environment" << std::endl;
-        std::cout << "      (Reason: Limited calendar support in WASM)" << std::endl;
-#else
+        // Note: This test may have limited functionality in WebAssembly environments
         status = U_ZERO_ERROR;
         std::unique_ptr<icu::Calendar> cal(icu::Calendar::createInstance(icu::Locale("ja_JP@calendar=japanese"), status));
         if (U_SUCCESS(status)) {
-            // Set to a known date in the Japanese calendar
-            cal->set(2019, 4, 1);  // May 1, 2019 (Reiwa 1)
-            int era = cal->get(UCAL_ERA, status);
+            std::cout << "   ✅ Calendar data accessible" << std::endl;
+            
+            // Test basic calendar functionality
+            int32_t year = cal->get(UCAL_YEAR, status);
+            int32_t month = cal->get(UCAL_MONTH, status) + 1; // 0-based to 1-based
+            int32_t day = cal->get(UCAL_DATE, status);
+            int32_t era = cal->get(UCAL_ERA, status);
+            
             if (U_SUCCESS(status)) {
-                std::cout << "   ✅ Calendar data accessible (Japanese era: " << era << ")" << std::endl;
+                std::cout << "   ✅ Japanese calendar date: Era " << era << ", Year " << year 
+                          << ", Month " << month << ", Day " << day << std::endl;
             } else {
-                std::cout << "   ❌ Failed to get calendar data: " << u_errorName(status) << std::endl;
+                std::cout << "   ❌ Failed to get calendar fields: " << u_errorName(status) << std::endl;
                 allTestsPassed = false;
             }
         } else {
             std::cout << "   ❌ Failed to create Japanese calendar: " << u_errorName(status) << std::endl;
             allTestsPassed = false;
         }
-#endif
         
         // Test 4: Check if we can access resource bundle data (requires res files)
         std::cout << "4. Testing resource bundle data..." << std::endl;
@@ -520,10 +563,7 @@ public:
         
         // Test 5: Check if we can access converter data (requires cnv files)
         std::cout << "5. Testing converter data..." << std::endl;
-#ifdef WASM_ENVIRONMENT
-        std::cout << "   ⚠️ Converter test skipped in WASM environment" << std::endl;
-        std::cout << "      (Reason: Limited charset conversion support in WASM)" << std::endl;
-#else
+        // Note: This test may have limited functionality in WebAssembly environments
         status = U_ZERO_ERROR;
         UConverter* conv = ucnv_open("Shift-JIS", &status);
         if (U_SUCCESS(status)) {
@@ -533,23 +573,16 @@ public:
             std::cout << "   ❌ Failed to open converter: " << u_errorName(status) << std::endl;
             allTestsPassed = false;
         }
-#endif
         
         // Summary
         std::cout << "\nICU Data Bundle Verification Summary:" << std::endl;
-#ifdef WASM_ENVIRONMENT
-        std::cout << "⚠️ WASM environment detected - limited ICU data bundle testing" << std::endl;
-        std::cout << "✅ Basic ICU functionality verified" << std::endl;
-        std::cout << "ℹ️ Some tests were skipped due to WASM limitations" << std::endl;
-#else
         if (allTestsPassed) {
             std::cout << "✅ All ICU data tests passed! The data bundle is properly included and accessible." << std::endl;
         } else {
             std::cout << "❌ Some ICU data tests failed. The data bundle may not be properly included or accessible." << std::endl;
         }
-#endif
     }
-#endif  // RUN_ICU_EXAMPLES
+
 };
 
 int main(int argc, char* argv[]) {
@@ -557,18 +590,29 @@ int main(int argc, char* argv[]) {
     
     // Get ICU root path from environment variable or command line argument
     std::string icuRoot = "/app/icu";  // Default path for Linux Docker container
+    std::string icuDataDir = "";  // Default is empty, will be set from environment or argument
     
-    // Check environment variable first
+    // Check environment variables first
     const char* envPath = std::getenv("ICU_ROOT");
     if (envPath != nullptr && strlen(envPath) > 0) {
         icuRoot = envPath;
     }
-    // Then check command line argument (overrides environment variable)
-    else if (argc > 1) {
+    
+    const char* envDataDir = std::getenv("ICU_DATA");
+    if (envDataDir != nullptr && strlen(envDataDir) > 0) {
+        icuDataDir = envDataDir;
+    }
+    
+    // Then check command line arguments (override environment variables)
+    if (argc > 1) {
         icuRoot = argv[1];
     }
     
-    ICUPackageTester tester(icuRoot);
+    if (argc > 2) {
+        icuDataDir = argv[2];
+    }
+    
+    ICUPackageTester tester(icuRoot, icuDataDir);
     bool packageOk = tester.testPackage();
     
     if (!packageOk) {
@@ -576,7 +620,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-#ifdef RUN_ICU_EXAMPLES
     // Print ICU version
     UVersionInfo versionInfo;
     u_getVersion(versionInfo);
@@ -597,10 +640,6 @@ int main(int argc, char* argv[]) {
         std::cerr << "\n❌ Exception in ICU examples: " << e.what() << std::endl;
         return 1;
     }
-#else
-    std::cout << "\nICU examples are disabled. To enable them, define RUN_ICU_EXAMPLES" << std::endl;
-    std::cout << "and make sure the ICU libraries are properly linked." << std::endl;
-#endif
     
     return 0;
 }

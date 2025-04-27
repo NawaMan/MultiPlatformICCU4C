@@ -48,7 +48,9 @@ fi
 WORKDIR=$(pwd)/build
 DISTDIR=$(pwd)/dist
 BUILDLOG="$DISTDIR/build.log"
-source common.source
+source common-source.sh
+
+common-init
 
 
 
@@ -136,17 +138,17 @@ build_icu() {
   PKG_CONFIG_LIBDIR=                                \
   CC="$CC" CXX="$CXX" AR="$AR" RANLIB="$RANLIB"     \
   CFLAGS="$EXTRA_CFLAGS" CXXFLAGS="$EXTRA_CXXFLAGS" \
-  "$ICU_SOURCE/configure"        \
-    --prefix="$INSTALL_DIR"      \
-    --host="$HOST"               \
-    --enable-static              \
-    --disable-shared             \
-    --with-data-packaging=static \
-    --disable-extras             \
-    --disable-tests              \
-    --disable-samples            \
-    $ENABLE_TOOLS                \
-    $EXTRA_FLAGS                 \
+  "$ICU_SOURCE/configure"         \
+    --prefix="$INSTALL_DIR"       \
+    --host="$HOST"                \
+    --enable-static               \
+    --disable-shared              \
+    --with-data-packaging=archive \
+    --disable-extras              \
+    --disable-tests               \
+    --disable-samples             \
+    $ENABLE_TOOLS                 \
+    $EXTRA_FLAGS                  \
     >> "$BUILDLOG" 2>&1
 
   make -j$(nproc)   >> "$BUILDLOG" 2>&1
@@ -167,6 +169,38 @@ build_icu() {
   # Check if headers were copied successfully
   header_count=$(find "$INSTALL_DIR/include/unicode" -name "*.h" | wc -l)
   print "  - Copied $header_count header files"
+
+  # Verify and handle the ICU data file
+  print "📦 Verifying ICU data file..."
+  
+  # Check for the data file in various possible locations
+  ICU_DATA_FILE=""
+  
+  # Check in the standard location first
+  STANDARD_DATA_PATH="$INSTALL_DIR/share/icu/$ICU_VERSION/icudt${ICU_VERSION%%.*}l.dat"
+  if [[ -f "$STANDARD_DATA_PATH" ]]; then
+    ICU_DATA_FILE="$STANDARD_DATA_PATH"
+    print "  ✅ Found ICU data file at standard location: $ICU_DATA_FILE"
+  else
+    # Try to find it in the build directory
+    BUILD_DATA_FILE=$(find "$BUILD_DIR" -name "*.dat" | head -n 1)
+    if [[ -n "$BUILD_DATA_FILE" ]]; then
+      # Create the share directory structure
+      mkdir -p "$INSTALL_DIR/share/icu/$ICU_VERSION"
+      # Copy the data file to the standard location
+      cp "$BUILD_DATA_FILE" "$STANDARD_DATA_PATH"
+      ICU_DATA_FILE="$STANDARD_DATA_PATH"
+      print "  ✅ Copied ICU data file from build directory to: $ICU_DATA_FILE"
+    else
+      print "  ⚠️ No ICU data file found! The package may not work correctly."
+    fi
+  fi
+
+  # If we found a data file, check its size
+  if [[ -n "$ICU_DATA_FILE" ]]; then
+    DATA_SIZE=$(du -h "$ICU_DATA_FILE" | cut -f1)
+    print "  - Data file size: $DATA_SIZE"
+  fi
 
   # Create the zip file from the install directory
   cd "$INSTALL_DIR"
@@ -328,7 +362,7 @@ build_llvm_ir_variant() {
 }
 
 
-show_build_matrix
+show-build-matrix
 
 
 if [[ "$LINUX_32" == true || "$LINUX_64" == true ]]; then

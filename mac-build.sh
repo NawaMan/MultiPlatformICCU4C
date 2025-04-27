@@ -17,9 +17,13 @@ mkdir -p  "$DISTDIR"
 touch     "$BUILDLOG"
 echo "" > "$BUILDLOG"
 
-# mac-build.sh does not concern the QUICK_BUILD variable or any build variables from common.source.
+# mac-build.sh does not concern the QUICK_BUILD variable or any build variables from common-source.sh.
 # If follows the parameter passed to it: x86_64, arm64, or universal.
-source common.source
+source common-source.sh
+
+common-init
+show-build-matrix
+
 
 
 ARCHS=()
