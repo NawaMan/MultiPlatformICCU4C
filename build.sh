@@ -51,8 +51,6 @@ DISTDIR=${DISTDIR:-$(pwd)/dist}
 BUILDLOG="$DISTDIR/build.log"
 source common-source.sh
 
-trap 'echo "❌ Error occurred at line $LINENO"; cat dist/64/build.log; exit 1' ERR
-
 common-init "$@"
 
 
@@ -151,8 +149,8 @@ build_icu() {
     --disable-tests               \
     --disable-samples             \
     $ENABLE_TOOLS                 \
-    $EXTRA_FLAGS                  \
-    >> "$BUILDLOG" 2>&1
+    $EXTRA_FLAGS    #              \
+    # >> "$BUILDLOG" 2>&1
 
   make -j$(nproc)   >> "$BUILDLOG" 2>&1
   make install      >> "$BUILDLOG" 2>&1
