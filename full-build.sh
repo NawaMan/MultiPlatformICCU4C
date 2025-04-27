@@ -23,8 +23,8 @@ fi
 
 
 
-WORKDIR=$(pwd)/build
-DISTDIR=$(pwd)/dist
+WORKDIR=${WORKDIR:-$(pwd)/build}
+DISTDIR=${DISTDIR:-$(pwd)/dist}
 BUILDLOG="$DISTDIR/build.log"
 
 echo "==========================================================================="
@@ -33,10 +33,10 @@ echo "==========================================================================
 
 mkdir -p "$WORKDIR"
 mkdir -p  "$DISTDIR"
-chown -R $(id -u):$(id -gn) $DISTDIR
-chmod g+s $DISTDIR
-setfacl -d -m g:$(id -gn):rwx $DISTDIR
-setfacl    -m g:$(id -gn):rwx $DISTDIR
+# chown -R $(id -u):$(id -gn) $DISTDIR
+# chmod g+s $DISTDIR
+# setfacl -d -m g:$(id -gn):rwx $DISTDIR
+# setfacl    -m g:$(id -gn):rwx $DISTDIR
 
 touch     "$BUILDLOG"
 echo "" > "$BUILDLOG"
@@ -73,12 +73,7 @@ docker build . \
 
 
 print_section "Run the container with volume mapping for dist"
-DOCKER_ARGS=""
-if [[ "$1" == "--dry-run" ]]; then
-  DOCKER_ARGS="--dry-run"
-fi
-
-docker run --rm -v "$DISTDIR:/app/dist" icu4c-builder:latest $DOCKER_ARGS
+docker run --rm -v "$DISTDIR:/app/dist" -v "$WORKDIR:/app/build" icu4c-builder:latest "$@"
 
 
 

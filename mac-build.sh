@@ -4,8 +4,8 @@ set -o pipefail
 
 
 
-WORKDIR=$(pwd)/build
-DISTDIR=$(pwd)/dist
+WORKDIR=${WORKDIR:-$(pwd)/build}
+DISTDIR=${DISTDIR:-$(pwd)/dist}
 BUILDLOG="$DISTDIR/build.log"
 
 echo "==========================================================================="
