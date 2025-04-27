@@ -82,6 +82,10 @@ print_section "Done!"
 print_status "✅ ICU build complete. Output in:"
 print $DISTDIR
 
+set +e
+set +x
+set +o pipefail
+
 print_status  "Built directories:"
 ls -ld "$DISTDIR"/*/    | tee -a "$BUILDLOG"
 
