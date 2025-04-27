@@ -140,6 +140,11 @@ build_icu() {
   [[ "$TARGET" == "$LINUX_CLANG_TARGET_32" || "$TARGET" == "$LINUX_CLANG_TARGET_64" ]] \
       && ENABLE_TOOLS="--enable-tools"
 
+  echo "ls -la WORKDIR($WORKDIR)"
+  ls -la "$WORKDIR"
+  echo "ls -la DISTDIR($DISTDIR)"
+  ls -la "$DISTDIR"
+
   PKG_CONFIG_LIBDIR=                                \
   CC="$CC" CXX="$CXX" AR="$AR" RANLIB="$RANLIB"     \
   CFLAGS="$EXTRA_CFLAGS" CXXFLAGS="$EXTRA_CXXFLAGS" \
