@@ -51,7 +51,7 @@ DISTDIR=${DISTDIR:-$(pwd)/dist}
 BUILDLOG="$DISTDIR/build.log"
 source common-source.sh
 
-trap 'echo "❌ Error occurred at line $LINENO"; cat $BUILDLOG; exit 1' ERR
+trap 'echo "❌ Error occurred at line $LINENO"; cat dist/64/build.log; exit 1' ERR
 
 common-init "$@"
 
