@@ -6,8 +6,9 @@
 # build.sh: Cross-compile ICU4C as static library for multiple platforms
 
 set -e
-# set -x
+set -x
 set -o pipefail
+
 
 if [[ "$1" == "--help" ]]; then
   echo -e "\033[1;33mUsage:\033[0m $0 [options]\n"
@@ -49,6 +50,8 @@ WORKDIR=${WORKDIR:-$(pwd)/build}
 DISTDIR=${DISTDIR:-$(pwd)/dist}
 BUILDLOG="$DISTDIR/build.log"
 source common-source.sh
+
+trap 'echo "❌ Error occurred at line $LINENO"; cat $BUILDLOG; exit 1' ERR
 
 common-init "$@"
 

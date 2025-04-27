@@ -70,7 +70,10 @@ jobs:
 
       - name: Build Windows ICU4C
         run: |
-          ./full-build.sh --win-32 --win-64
+          pwd
+          ls -la
+          ls -la dist
+          ./full-build.sh --win-64
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -81,7 +84,7 @@ jobs:
           retention-days: 7
 
   build-windows-32:
-    name: Build Windows (32/64)
+    name: Build Windows 32
     needs: build-linux-32
     runs-on: ubuntu-latest
     steps:
@@ -96,7 +99,10 @@ jobs:
 
       - name: Build Windows ICU4C
         run: |
-          ./full-build.sh --win-32 --win-64
+          pwd
+          ls -la
+          ls -la dist
+          ./full-build.sh --win-32
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4

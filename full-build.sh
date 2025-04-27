@@ -10,7 +10,7 @@
 
 
 set -e
-# set -x
+set -x
 set -o pipefail
 
 if [[ "$1" == "--help" ]]; then
