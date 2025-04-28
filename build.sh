@@ -145,6 +145,17 @@ build_icu() {
   echo "ls -la DISTDIR($DISTDIR)"
   ls -la "$DISTDIR"
 
+  if [[ -d "/app/build/build-linux-x86_32-clang-20/bin" ]]; then
+    echo "Check permission"
+    chmod 755 /app/build/build-linux-x86_32-clang-20/bin/*
+    ls -la /app/build/build-linux-x86_32-clang-20/bin/ 
+  fi
+  if [[ -d "/app/build/build-linux-x86_64-clang-20/bin" ]]; then
+    echo "Check permission"
+    chmod 755 /app/build/build-linux-x86_64-clang-20/bin/*
+    ls -la /app/build/build-linux-x86_64-clang-20/bin/ 
+  fi
+
   PKG_CONFIG_LIBDIR=                                \
   CC="$CC" CXX="$CXX" AR="$AR" RANLIB="$RANLIB"     \
   CFLAGS="$EXTRA_CFLAGS" CXXFLAGS="$EXTRA_CXXFLAGS" \
