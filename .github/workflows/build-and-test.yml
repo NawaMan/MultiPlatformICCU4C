@@ -23,7 +23,14 @@ jobs:
           touch dist/build.log
           WORDDIR=$(pwd)/dist DISTDIR=$(pwd)/dist ./full-build.sh --linux-64
 
-      - name: Upload Linux artifacts
+      - name: Upload Linux build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build-artifacts-64
+          path: |
+            build/
+          retention-days: 7
+      - name: Upload Linux dist artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-build-artifacts-64
@@ -46,10 +53,17 @@ jobs:
           touch dist/build.log
           WORDDIR=$(pwd)/dist DISTDIR=$(pwd)/dist ./full-build.sh --linux-32
 
-      - name: Upload Linux artifacts
+      - name: Upload Linux build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-build-artifacts-32
+          path: |
+            build/
+          retention-days: 7
+      - name: Upload Linux dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-dist-artifacts-32
           path: |
             dist/
           retention-days: 7
@@ -66,6 +80,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: linux-build-artifacts-64
+          path: build
+
+      - name: Download Linux dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-dist-artifacts-64
           path: dist
 
       - name: Build Windows ICU4C
@@ -76,6 +96,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-build-artifacts-64
+          path: |
+            build/
+          retention-days: 7
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-dist-artifacts-64
           path: |
             dist/
           retention-days: 7
@@ -92,6 +120,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: linux-build-artifacts-32
+          path: build
+
+      - name: Download Linux dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-dist-artifacts-32
           path: dist
 
       - name: Build Windows ICU4C
@@ -101,7 +135,15 @@ jobs:
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-build-artifacts-32
+          name: windows-build-artifacts-64
+          path: |
+            build/
+          retention-days: 7
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-dist-artifacts-64
           path: |
             dist/
           retention-days: 7
