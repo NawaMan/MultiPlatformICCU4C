@@ -161,7 +161,7 @@ build_icu() {
     $EXTRA_FLAGS    #              \
     # >> "$BUILDLOG" 2>&1
 
-  make -j$(nproc)   >> "$BUILDLOG" 2>&1
+  make -j$(nproc) #  >> "$BUILDLOG" 2>&1
   make install      >> "$BUILDLOG" 2>&1
 
   # Copy ICU headers to the install directory
