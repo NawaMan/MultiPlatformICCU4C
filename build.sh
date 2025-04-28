@@ -136,9 +136,15 @@ build_icu() {
       && ENABLE_TOOLS="--enable-tools"
 
   CROSS_COMPILE_DIR="${EXTRA_FLAGS#--with-cross-build=}"
+  print "Change permission"
+  print "CROSS_COMPILE_DIR: $CROSS_COMPILE_DIR"
+  # /app/build/build-linux-x86_32-clang-20
+  # /app/build/build-linux-x86_32-clang-20/bin/icupkg: Permission denied
   if [[ -d "$CROSS_COMPILE_DIR/bin" ]]; then
+    ls -la "$CROSS_COMPILE_DIR" || true
+    ls -la "$CROSS_COMPILE_DIR/bin" || true
     # In the pipeline, the permission can be altered to be un-executable. This should fix it.
-    chmod 755 "$CROSS_COMPILE_DIR/bin/*" || true
+    chmod 755 "$CROSS_COMPILE_DIR/bin"/* || true
   fi
 
   PKG_CONFIG_LIBDIR=                                \
