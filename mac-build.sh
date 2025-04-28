@@ -26,31 +26,6 @@ show-build-matrix
 
 
 
-ARCHS=()
-# Parse args
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --icu-version)
-      ICU_VERSION="$2"
-      shift 2
-      ;;
-    x86_64|arm64|universal)
-      ARCHS+=("$1")
-      shift
-      ;;
-    *)
-      echo "❌ Unknown argument: $1"
-      echo "Usage: $0 [--icu-version <version>] [x86_64 arm64 universal]"
-      exit 1
-      ;;
-  esac
-done
-
-# Default to all if none specified
-if [[ ${#ARCHS[@]} -eq 0 ]]; then
-  ARCHS=("x86_64" "arm64" "universal")
-fi
-
 ROOT_DIR="$(pwd)"
 ICU_SOURCE="$ROOT_DIR/build/icu/source"
 WORKDIR="$ROOT_DIR/build-macos"

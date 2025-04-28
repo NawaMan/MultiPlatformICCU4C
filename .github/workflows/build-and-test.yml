@@ -70,6 +70,51 @@ jobs:
             dist/
           retention-days: 7
 
+  macos:
+    name: macOS Build
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew update
+          brew install cmake --formula
+          brew list ninja || brew install ninja
+
+      - name: Prepare ICU source
+        run: |        
+          WORKDIR=$(pwd)/build
+          DISTDIR=$(pwd)/dist
+          BUILDLOG="$DISTDIR/build.log"
+
+          echo "==========================================================================="
+          echo "\033[0;32m Detail build log can be found at: $BUILDLOG\033[0m"
+          echo "==========================================================================="
+
+          mkdir -p  "$WORKDIR"
+          mkdir -p  "$DISTDIR"
+          touch     "$BUILDLOG"
+          echo "" > "$BUILDLOG"
+          ./build.sh --prepare-only
+
+      - name: Build macOS Release
+        run: |
+          echo "Building macOS release for version $VERSION"
+          chmod +x mac-build.sh
+          
+          # mac-build.sh does not concern the QUICK_BUILD variable.
+          ./mac-build.sh
+
+      - name: Upload macOS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-packages
+          path: dist/*-macos*.zip
+          if-no-files-found: error
+
   build-windows-64:
     name: Build Windows 64
     needs: build-linux-64

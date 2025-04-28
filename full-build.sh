@@ -10,7 +10,7 @@
 
 
 set -e
-set -x
+# set -x
 set -o pipefail
 
 if [[ "$1" == "--help" ]]; then
@@ -33,10 +33,6 @@ echo "==========================================================================
 
 mkdir -p "$WORKDIR"
 mkdir -p "$DISTDIR"
-# chown -R $(id -u):$(id -gn) $DISTDIR
-# chmod g+s $DISTDIR
-# setfacl -d -m g:$(id -gn):rwx $DISTDIR
-# setfacl    -m g:$(id -gn):rwx $DISTDIR
 
 touch     "$BUILDLOG"
 echo "" > "$BUILDLOG"

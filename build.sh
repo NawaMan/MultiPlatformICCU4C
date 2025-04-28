@@ -70,12 +70,6 @@ mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 
 
-echo "ls -la WORKDIR($WORKDIR)"
-ls -la "$WORKDIR"
-echo "ls -la DISTDIR($DISTDIR)"
-ls -la "$DISTDIR"
-
-
 print_section "Prepare ICU source"
 ICU_URL="https://github.com/unicode-org/icu/releases/download/release-${ICU_VERSION//./-}/icu4c-${ICU_VERSION//./_}-src.tgz"
 ICU4C_FILE=icu4c.tgz
@@ -125,6 +119,7 @@ build_icu() {
     echo "[DRY RUN] Would build ICU for: TARGET=$TARGET HOST=$HOST CC=$CC CXX=$CXX AR=$AR RANLIB=$RANLIB EXTRA_FLAGS=[$EXTRA_FLAGS] EXTRA_CFLAGS=[$EXTRA_CFLAGS] EXTRA_CXXFLAGS=[$EXTRA_CXXFLAGS]"
     return 0
   fi
+  
 
   BUILD_DIR="$WORKDIR/build-$TARGET"
   INSTALL_DIR="$DISTDIR/$TARGET"
@@ -140,9 +135,10 @@ build_icu() {
   [[ "$TARGET" == "$LINUX_CLANG_TARGET_32" || "$TARGET" == "$LINUX_CLANG_TARGET_64" ]] \
       && ENABLE_TOOLS="--enable-tools"
 
-  if [[ -d "$INSTALL_DIR/bin" ]]; then
+  CROSS_COMPILE_DIR="${EXTRA_FLAGS#--with-cross-build=}"
+  if [[ -d "$CROSS_COMPILE_DIR/bin" ]]; then
     # In the pipeline, the permission can be altered to be un-executable. This should fix it.
-    chmod 755 $INSTALL_DIR/bin/* || true
+    chmod 755 "$CROSS_COMPILE_DIR/bin/*" || true
   fi
 
   PKG_CONFIG_LIBDIR=                                \
