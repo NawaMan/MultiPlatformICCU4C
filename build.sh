@@ -136,14 +136,9 @@ build_icu() {
       && ENABLE_TOOLS="--enable-tools"
 
   CROSS_COMPILE_DIR="${EXTRA_FLAGS#--with-cross-build=}"
-  print "Change permission"
-  print "CROSS_COMPILE_DIR: $CROSS_COMPILE_DIR"
-  # /app/build/build-linux-x86_32-clang-20
-  # /app/build/build-linux-x86_32-clang-20/bin/icupkg: Permission denied
   if [[ -d "$CROSS_COMPILE_DIR/bin" ]]; then
-    ls -la "$CROSS_COMPILE_DIR" || true
-    ls -la "$CROSS_COMPILE_DIR/bin" || true
     # In the pipeline, the permission can be altered to be un-executable. This should fix it.
+    print "Change permission"
     chmod 755 "$CROSS_COMPILE_DIR/bin"/* || true
   fi
 
@@ -160,11 +155,16 @@ build_icu() {
     --disable-tests               \
     --disable-samples             \
     $ENABLE_TOOLS                 \
-    $EXTRA_FLAGS #                 \
-    #>> "$BUILDLOG" 2>&1
+    $EXTRA_FLAGS                  \
+    >> "$BUILDLOG" 2>&1
+    
 
   make -j$(nproc) # >> "$BUILDLOG" 2>&1
   make install    # >> "$BUILDLOG" 2>&1
+
+  echo "0: Look at target: $INSTALL_DIR"
+  ls -la "$INSTALL_DIR"/bin    || true
+  ls -la "$STANDARD_DATA_PATH" || true
 
   # Copy ICU headers to the install directory
   print "📋 Copying ICU headers to package..."
@@ -177,6 +177,9 @@ build_icu() {
       find "$WORKDIR/icu/source/$module" -name "*.h" -exec cp {} "$INSTALL_DIR/include/unicode/" \;
     fi
   done
+
+  echo "1: Look at target: $INSTALL_DIR"
+  ls -la "$INSTALL_DIR"/bin || true
   
   # Check if headers were copied successfully
   header_count=$(find "$INSTALL_DIR/include/unicode" -name "*.h" | wc -l)
@@ -208,11 +211,17 @@ build_icu() {
     fi
   fi
 
+  echo "2: Look at target: $INSTALL_DIR"
+  ls -la "$INSTALL_DIR"/bin || true
+
   # If we found a data file, check its size
   if [[ -n "$ICU_DATA_FILE" ]]; then
     DATA_SIZE=$(du -h "$ICU_DATA_FILE" | cut -f1)
     print "  - Data file size: $DATA_SIZE"
   fi
+
+  echo "3: Look at target: $INSTALL_DIR"
+  ls -la "$INSTALL_DIR"/bin || true
 
   # Create the zip file from the install directory
   cd "$INSTALL_DIR"
