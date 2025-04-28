@@ -154,11 +154,11 @@ build_icu() {
     --disable-tests               \
     --disable-samples             \
     $ENABLE_TOOLS                 \
-    $EXTRA_FLAGS                  \
-    >> "$BUILDLOG" 2>&1
+    $EXTRA_FLAGS #                 \
+    #>> "$BUILDLOG" 2>&1
 
-  make -j$(nproc)  >> "$BUILDLOG" 2>&1
-  make install     >> "$BUILDLOG" 2>&1
+  make -j$(nproc) # >> "$BUILDLOG" 2>&1
+  make install    # >> "$BUILDLOG" 2>&1
 
   # Copy ICU headers to the install directory
   print "📋 Copying ICU headers to package..."
