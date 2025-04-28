@@ -140,20 +140,9 @@ build_icu() {
   [[ "$TARGET" == "$LINUX_CLANG_TARGET_32" || "$TARGET" == "$LINUX_CLANG_TARGET_64" ]] \
       && ENABLE_TOOLS="--enable-tools"
 
-  echo "ls -la WORKDIR($WORKDIR)"
-  ls -la "$WORKDIR"
-  echo "ls -la DISTDIR($DISTDIR)"
-  ls -la "$DISTDIR"
-
-  if [[ -d "/app/build/build-linux-x86_32-clang-20/bin" ]]; then
-    echo "Check permission"
-    chmod 755 /app/build/build-linux-x86_32-clang-20/bin/*
-    ls -la /app/build/build-linux-x86_32-clang-20/bin/ 
-  fi
-  if [[ -d "/app/build/build-linux-x86_64-clang-20/bin" ]]; then
-    echo "Check permission"
-    chmod 755 /app/build/build-linux-x86_64-clang-20/bin/*
-    ls -la /app/build/build-linux-x86_64-clang-20/bin/ 
+  if [[ -d "$INSTALL_DIR/bin" ]]; then
+    # In the pipeline, the permission can be altered to be un-executable. This should fix it.
+    chmod 755 $INSTALL_DIR/bin/* || true
   fi
 
   PKG_CONFIG_LIBDIR=                                \
@@ -169,11 +158,11 @@ build_icu() {
     --disable-tests               \
     --disable-samples             \
     $ENABLE_TOOLS                 \
-    $EXTRA_FLAGS    #              \
-    # >> "$BUILDLOG" 2>&1
+    $EXTRA_FLAGS                  \
+    >> "$BUILDLOG" 2>&1
 
-  make -j$(nproc) #  >> "$BUILDLOG" 2>&1
-  make install      >> "$BUILDLOG" 2>&1
+  make -j$(nproc)  >> "$BUILDLOG" 2>&1
+  make install     >> "$BUILDLOG" 2>&1
 
   # Copy ICU headers to the install directory
   print "📋 Copying ICU headers to package..."

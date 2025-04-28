@@ -92,27 +92,13 @@ jobs:
 
       - name: Build Windows ICU4C
         run: |
-          ls -la $(pwd)/dist
-          ls -la $(pwd)/dist/linux-x86_64-clang-20
-          ls -la    $(pwd)/dist/linux-x86_64-clang-20/bin
-          chmod 755 $(pwd)/dist/linux-x86_64-clang-20/bin/*
-          ls -la    $(pwd)/dist/linux-x86_64-clang-20/bin
           WORDDIR=$(pwd)/dist DISTDIR=$(pwd)/dist ./full-build.sh --win-64
-
-      - name: Upload Windows build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-build-artifacts-64
-          path: |
-            build/
-          retention-days: 7
 
       - name: Upload Windows dist artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-dist-artifacts-64
-          path: |
-            dist/
+          path: dist/*.zip
           retention-days: 7
 
   build-windows-32:
@@ -137,27 +123,13 @@ jobs:
 
       - name: Build Windows ICU4C
         run: |
-          ls -la $(pwd)/dist
-          ls -la $(pwd)/dist/linux-x86_32-clang-20
-          ls -la $(pwd)/dist/linux-x86_32-clang-20/bin
-          chmod 755 $(pwd)/dist/linux-x86_32-clang-20/bin/*
-          ls -la $(pwd)/dist/linux-x86_32-clang-20/bin
           WORDDIR=$(pwd)/dist DISTDIR=$(pwd)/dist ./full-build.sh --win-32
-
-      - name: Upload Windows build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-build-artifacts-32
-          path: |
-            build/
-          retention-days: 7
 
       - name: Upload Windows dist artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-dist-artifacts-32
-          path: |
-            dist/
+          path: dist/*.zip
           retention-days: 7
 
   # build-wasm:
