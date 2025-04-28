@@ -33,7 +33,7 @@ jobs:
       - name: Upload Linux dist artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-build-artifacts-64
+          name: linux-dist-artifacts-64
           path: |
             dist/
           retention-days: 7
@@ -92,7 +92,7 @@ jobs:
         run: |
           WORDDIR=$(pwd)/dist DISTDIR=$(pwd)/dist ./full-build.sh --win-64
 
-      - name: Upload Windows artifacts
+      - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-build-artifacts-64
@@ -100,7 +100,7 @@ jobs:
             build/
           retention-days: 7
 
-      - name: Upload Windows artifacts
+      - name: Upload Windows dist artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-dist-artifacts-64
@@ -132,7 +132,7 @@ jobs:
         run: |
           WORDDIR=$(pwd)/dist DISTDIR=$(pwd)/dist ./full-build.sh --win-32
 
-      - name: Upload Windows artifacts
+      - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-build-artifacts-64
@@ -140,7 +140,7 @@ jobs:
             build/
           retention-days: 7
 
-      - name: Upload Windows artifacts
+      - name: Upload Windows dist artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-dist-artifacts-64
