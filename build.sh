@@ -162,10 +162,6 @@ build_icu() {
   make -j$(nproc) # >> "$BUILDLOG" 2>&1
   make install    # >> "$BUILDLOG" 2>&1
 
-  echo "0: Look at target: $INSTALL_DIR"
-  ls -la "$INSTALL_DIR"/bin    || true
-  ls -la "$STANDARD_DATA_PATH" || true
-
   # Copy ICU headers to the install directory
   print "📋 Copying ICU headers to package..."
   mkdir -p "$INSTALL_DIR/include/unicode"
@@ -177,9 +173,6 @@ build_icu() {
       find "$WORKDIR/icu/source/$module" -name "*.h" -exec cp {} "$INSTALL_DIR/include/unicode/" \;
     fi
   done
-
-  echo "1: Look at target: $INSTALL_DIR"
-  ls -la "$INSTALL_DIR"/bin || true
   
   # Check if headers were copied successfully
   header_count=$(find "$INSTALL_DIR/include/unicode" -name "*.h" | wc -l)
@@ -203,7 +196,7 @@ build_icu() {
       # Create the share directory structure
       mkdir -p "$INSTALL_DIR/share/icu/$ICU_VERSION"
       # Copy the data file to the standard location
-      cp "$BUILD_DATA_FILE" "$STANDARD_DATA_PATH"
+      mv "$BUILD_DATA_FILE" "$STANDARD_DATA_PATH"
       ICU_DATA_FILE="$STANDARD_DATA_PATH"
       print "  ✅ Copied ICU data file from build directory to: $ICU_DATA_FILE"
     else
@@ -211,17 +204,11 @@ build_icu() {
     fi
   fi
 
-  echo "2: Look at target: $INSTALL_DIR"
-  ls -la "$INSTALL_DIR"/bin || true
-
   # If we found a data file, check its size
   if [[ -n "$ICU_DATA_FILE" ]]; then
     DATA_SIZE=$(du -h "$ICU_DATA_FILE" | cut -f1)
     print "  - Data file size: $DATA_SIZE"
   fi
-
-  echo "3: Look at target: $INSTALL_DIR"
-  ls -la "$INSTALL_DIR"/bin || true
 
   # Create the zip file from the install directory
   cd "$INSTALL_DIR"

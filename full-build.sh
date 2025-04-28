@@ -33,6 +33,10 @@ echo "==========================================================================
 
 mkdir -p "$WORKDIR"
 mkdir -p "$DISTDIR"
+chown -R $(id -u):$(id -gn) $DISTDIR || true
+chmod g+s $DISTDIR
+setfacl -d -m g:$(id -gn):rwx $DISTDIR || true
+setfacl    -m g:$(id -gn):rwx $DISTDIR || true
 
 touch     "$BUILDLOG"
 echo "" > "$BUILDLOG"
