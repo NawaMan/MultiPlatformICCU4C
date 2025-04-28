@@ -100,13 +100,13 @@ jobs:
           echo "" > "$BUILDLOG"
           ./build.sh --prepare-only
 
-      # - name: Build macOS Release
-      #   run: |
-      #     echo "Building macOS release for version $VERSION"
-      #     chmod +x mac-build.sh
+      - name: Build macOS Release
+        run: |
+          echo "Building macOS release for version $VERSION"
+          chmod +x mac-build.sh
           
-      #     # mac-build.sh does not concern the QUICK_BUILD variable.
-      #     ./mac-build.sh
+          # mac-build.sh does not concern the QUICK_BUILD variable.
+          ./mac-build.sh
 
       # - name: Upload macOS Artifacts
       #   uses: actions/upload-artifact@v4
