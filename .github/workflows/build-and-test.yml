@@ -8,6 +8,45 @@ on:
   workflow_dispatch:
 
 jobs:
+
+  build-linux-32:
+    name: Build Linux 32
+    runs-on: ubuntu-latest
+    outputs:
+      linux-artifact-name: linux-build-artifacts
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Linux ICU4C 32
+        run: |
+          mkdir -p dist
+          touch dist/build.log
+          WORDDIR=$(pwd)/dist DISTDIR=$(pwd)/dist ./full-build.sh --linux-32
+
+      - name: Upload Linux build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build-artifacts-32
+          path: |
+            build/
+          retention-days: 7
+
+      - name: Upload Linux dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-dist-artifacts-32
+          path: |
+            dist/
+          retention-days: 7
+
+      - name: Upload Linux dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-32.zip
+          path: dist/*-linux-32-*.zip
+          retention-days: 7
+
   build-linux-64:
     name: Build Linux 64
     runs-on: ubuntu-latest
@@ -39,35 +78,11 @@ jobs:
             dist/
           retention-days: 7
 
-  build-linux-32:
-    name: Build Linux 32
-    runs-on: ubuntu-latest
-    outputs:
-      linux-artifact-name: linux-build-artifacts
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Build Linux ICU4C 32
-        run: |
-          mkdir -p dist
-          touch dist/build.log
-          WORDDIR=$(pwd)/dist DISTDIR=$(pwd)/dist ./full-build.sh --linux-32
-
-      - name: Upload Linux build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-build-artifacts-32
-          path: |
-            build/
-          retention-days: 7
-
       - name: Upload Linux dist artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-dist-artifacts-32
-          path: |
-            dist/
+          name: linux-64.zip
+          path: dist/*-linux-64-*.zip
           retention-days: 7
 
   macos:
@@ -115,37 +130,6 @@ jobs:
       #     path: dist/*.zip
       #     if-no-files-found: error
 
-  build-windows-64:
-    name: Build Windows 64
-    needs: build-linux-64
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Download Linux build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-build-artifacts-64
-          path: build
-
-      - name: Download Linux dist artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-dist-artifacts-64
-          path: dist
-
-      - name: Build Windows ICU4C
-        run: |
-          WORDDIR=$(pwd)/dist DISTDIR=$(pwd)/dist ./full-build.sh --win-64
-
-      - name: Upload Windows dist artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-dist-artifacts-64
-          path: dist/*.zip
-          retention-days: 7
-
   build-windows-32:
     name: Build Windows 32
     needs: build-linux-32
@@ -173,96 +157,138 @@ jobs:
       - name: Upload Windows dist artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-dist-artifacts-32
-          path: dist/*.zip
+          name: windows-32.zip
+          path: dist/*-windows-32-*.zip
           retention-days: 7
 
-  # build-wasm:
-  #   name: Build WASM (32/64)
-  #   needs: build-linux
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v3
+  build-windows-64:
+    name: Build Windows 64
+    needs: build-linux-64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-  #     - name: Download Linux build artifacts
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: linux-build-artifacts
-  #         path: dist
+      - name: Download Linux build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build-artifacts-64
+          path: build
 
-  #     - name: Build WASM ICU4C
-  #       run: |
-  #         ./full-build.sh --wasm-32 --wasm-64
+      - name: Download Linux dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-dist-artifacts-64
+          path: dist
 
-  #     - name: Upload WASM artifacts
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: wasm-build-artifacts
-  #         path: |
-  #           dist/
-  #         retention-days: 7
+      - name: Build Windows ICU4C
+        run: |
+          WORDDIR=$(pwd)/dist DISTDIR=$(pwd)/dist ./full-build.sh --win-64
 
-  # build-llvmir:
-  #   name: Build LLVM IR (32/64)
-  #   needs: build-linux
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v3
+      - name: Upload Windows dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-64.zip
+          path: dist/*-windows-64-*.zip
+          retention-days: 7
 
-  #     - name: Download Linux build artifacts
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: linux-build-artifacts
-  #         path: dist
+  build-wasm-32:
+    name: Build WASM 32
+    needs: build-linux-32
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-  #     - name: Build LLVM IR
-  #       run: |
-  #         ./full-build.sh --llvm-32 --llvm-64
+      - name: Download Linux build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build-artifacts-32
+          path: build
 
-  #     - name: Upload LLVM IR artifacts
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: llvmir-build-artifacts
-  #         path: |
-  #           dist/
-  #         retention-days: 7
+      - name: Download Linux dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-dist-artifacts-32
+          path: dist
 
-  # test-linux-x86_64:
-  #   name: Test Linux x86_64
-  #   needs: build-linux
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v3
+      - name: Build WASM ICU4C
+        run: |
+          WORDDIR=$(pwd)/dist DISTDIR=$(pwd)/dist ./full-build.sh --wasm-32
 
-  #     - name: Download Linux build artifacts
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: linux-build-artifacts
-  #         path: dist
+      - name: Upload WASM dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-32.zip
+          path: dist/*-wasm-32-*.zip
+          retention-days: 7
 
-  #     - name: Run Linux x86_64 Tests
-  #       run: |
-  #         cd test/test-linux-x86_64
-  #         ./run.sh
+  build-wasm-64:
+    name: Build WASM 64
+    needs: build-linux-64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-  # test-linux-x86_32:
-  #   name: Test Linux x86_32
-  #   needs: build-linux
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v3
+      - name: Download Linux build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build-artifacts-64
+          path: build
 
-  #     - name: Download Linux build artifacts
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: linux-build-artifacts
-  #         path: dist
+      - name: Download Linux dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-dist-artifacts-64
+          path: dist
 
-  #     - name: Run Linux x86_32 Tests
-  #       run: |
-  #         cd test/test-linux-x86_32
-  #         ./run.sh
+      - name: Build WASM ICU4C
+        run: |
+          WORDDIR=$(pwd)/dist DISTDIR=$(pwd)/dist ./full-build.sh --wasm-64
+
+      - name: Upload WASM dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-64.zip
+          path: dist/*-wasm-64-*.zip
+          retention-days: 7
+
+  test-linux-x86_32:
+    name: Test Linux x86_32
+    needs: build-linux-32
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download Linux build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build-artifacts-32
+          path: dist
+
+      - name: Run Linux x86_32 Tests
+        run: |
+          cd test/test-linux-x86_32
+          ./run.sh
+
+
+  test-linux-x86_64:
+    name: Test Linux x86_64
+    needs: build-linux-64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download Linux build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build-artifacts-64
+          path: dist
+
+      - name: Run Linux x86_64 Tests
+        run: |
+          cd test/test-linux-x86_64
+          ./run.sh

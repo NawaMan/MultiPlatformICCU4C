@@ -31,9 +31,6 @@ reset-build-metrics() {
   LLVMIR32=$VALUE
   LLVMIR64=$VALUE
   BUILD_CLANG=$VALUE
-  BUILD_WINDOWS=$VALUE
-  BUILD_WASM=$VALUE
-  BUILD_LLVMIR=$VALUE
 }
 
 common-init() {
@@ -90,7 +87,6 @@ common-init() {
         esac ;;
       MINGW*|MSYS*|CYGWIN*)
         BUILD_CLANG=true
-        BUILD_WINDOWS=true
         case "$UNAME_M" in
           x86_64)      WINDOWS_64=true ; LINUX_64=true ;;
           i686 | i386) WINDOWS_32=true ; LINUX_32=true ;;
@@ -117,15 +113,9 @@ common-init() {
       esac
     done
 
-    if [[ "$LINUX_32"   == "true" || "$LINUX_64"   == "true" ]]; then BUILD_CLANG=true   ; else BUILD_CLANG=false;   fi
-    if [[ "$WINDOWS_32" == "true" || "$WINDOWS_64" == "true" ]]; then BUILD_WINDOWS=true ; else BUILD_WINDOWS=false; fi
-    if [[ "$WASM32"     == "true" || "$WASM64"     == "true" ]]; then BUILD_WASM=true    ; else BUILD_WASM=false;    fi
-    if [[ "$LLVMIR32"   == "true" || "$LLVMIR64"   == "true" ]]; then BUILD_LLVMIR=true  ; else BUILD_LLVMIR=false ; fi
+    if [[ "$LINUX_32" == "true" || "$LINUX_64" == "true" ]]; then BUILD_CLANG=true; else BUILD_CLANG=false; fi
 
-    echo "BUILD_CLANG  : $BUILD_CLANG"
-    echo "BUILD_WINDOWS: $BUILD_WINDOWS"
-    echo "BUILD_WASM   : $BUILD_WASM"
-    echo "BUILD_LLVMIR : $BUILD_LLVMIR"
+    echo "BUILD_CLANG: $BUILD_CLANG"
 
   else
     # Full build: enable all targets
@@ -255,10 +245,7 @@ show-build-matrix() {
       fi
     }
 
-    printf "%-13s %b\n" "BUILD_CLANG"   "$(summary_icon $BUILD_CLANG)"   | tee -a "$BUILDLOG"
-    printf "%-13s %b\n" "BUILD_WINDOWS" "$(summary_icon $BUILD_WINDOWS)" | tee -a "$BUILDLOG"
-    printf "%-13s %b\n" "BUILD_WASM"    "$(summary_icon $BUILD_WASM)"    | tee -a "$BUILDLOG"
-    printf "%-13s %b\n" "BUILD_LLVMIR"  "$(summary_icon $BUILD_LLVMIR)"  | tee -a "$BUILDLOG"
+    printf "%-13s %b\n" "BUILD_CLANG" "$(summary_icon $BUILD_CLANG)" | tee -a "$BUILDLOG"
     print "" | tee -a "$BUILDLOG"
   fi
 }

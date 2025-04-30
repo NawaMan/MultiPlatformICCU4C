@@ -86,11 +86,15 @@ set +e
 set +x
 set +o pipefail
 
+pushd "$DISTDIR"
+
 print_status  "Built directories:"
-ls -ld "$DISTDIR"/*/    | tee -a "$BUILDLOG"
+ls -ld */    | tee -a "$BUILDLOG"
 
 print_status "Zip archives:"
-ls -l "$DISTDIR"/*.zip  | tee -a "$BUILDLOG"
+ls -l *.zip  | tee -a "$BUILDLOG"
+
+popd
 
 print_status "Detail build log can be found at: "
 print $BUILDLOG

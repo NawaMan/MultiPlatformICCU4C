@@ -104,8 +104,8 @@ if [[ $BUILD_CLANG == "true" && $IGNORE_COMPILER_VERSION -eq 0 ]]; then
   fi
 fi
 
-LINUX_CLANG_TARGET_32="linux-x86_32-clang-${ACTUAL_CLANG_VERSION%%.*}"
-LINUX_CLANG_TARGET_64="linux-x86_64-clang-${ACTUAL_CLANG_VERSION%%.*}"
+LINUX_CLANG_TARGET_32="linux-x86-32"
+LINUX_CLANG_TARGET_64="linux-x86-64"
 
 print "✅ Compiler version checked"
 print ""
@@ -113,7 +113,7 @@ print ""
 
 
 build_icu() {
-  TARGET="$1"; HOST="$2"; CC="$3"; CXX="$4"; AR="$5"; RANLIB="$6"; EXTRA_FLAGS="$7";  EXTRA_CFLAGS="$8"; EXTRA_CXXFLAGS="$9"
+  TARGET="$1"; HOST="$2"; CC="$3"; CXX="$4"; AR="$5"; RANLIB="$6"; EXTRA_FLAGS="$7";  EXTRA_CFLAGS="$8"; EXTRA_CXXFLAGS="$9" ZIP_FILE="${10}"
   print_section "Build ICU for $TARGET"
   if [[ "$DRY_RUN" == true ]]; then
     echo "[DRY RUN] Would build ICU for: TARGET=$TARGET HOST=$HOST CC=$CC CXX=$CXX AR=$AR RANLIB=$RANLIB EXTRA_FLAGS=[$EXTRA_FLAGS] EXTRA_CFLAGS=[$EXTRA_CFLAGS] EXTRA_CXXFLAGS=[$EXTRA_CXXFLAGS]"
@@ -123,12 +123,6 @@ build_icu() {
 
   BUILD_DIR="$WORKDIR/build-$TARGET"
   INSTALL_DIR="$DISTDIR/$TARGET"
-  # Determine toolchain tag for zip file
-  if [[ "$TARGET" == wasm32 || "$TARGET" == wasm64 ]]; then
-    ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}-$TARGET-clang-${ACTUAL_CLANG_VERSION%%.*}-emsdk-${ENSDK_VERSION}.zip"
-  else
-    ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}-$TARGET.zip"
-  fi
 
   rm    -rf "$BUILD_DIR" "$INSTALL_DIR"
   mkdir -p  "$BUILD_DIR" "$INSTALL_DIR/bin" "$INSTALL_DIR/lib" "$INSTALL_DIR/include"
@@ -149,17 +143,17 @@ build_icu() {
   PKG_CONFIG_LIBDIR=                                \
   CC="$CC" CXX="$CXX" AR="$AR" RANLIB="$RANLIB"     \
   CFLAGS="$EXTRA_CFLAGS" CXXFLAGS="$EXTRA_CXXFLAGS" \
-  "$ICU_SOURCE/configure"         \
-    --prefix="$INSTALL_DIR"       \
-    --host="$HOST"                \
-    --enable-static               \
-    --disable-shared              \
-    --with-data-packaging=archive \
-    --disable-extras              \
-    --disable-tests               \
-    --disable-samples             \
-    $ENABLE_TOOLS                 \
-    $EXTRA_FLAGS                  \
+  "$ICU_SOURCE/configure"                           \
+    --prefix="$INSTALL_DIR"                         \
+    --host="$HOST"                                  \
+    --enable-static                                 \
+    --disable-shared                                \
+    --with-data-packaging=archive                   \
+    --disable-extras                                \
+    --disable-tests                                 \
+    --disable-samples                               \
+    $ENABLE_TOOLS                                   \
+    $EXTRA_FLAGS                                    \
     >> "$BUILDLOG" 2>&1
     
 
@@ -204,7 +198,8 @@ build_icu() {
       ICU_DATA_FILE="$STANDARD_DATA_PATH"
       print "  ✅ Copied ICU data file from build directory to: $ICU_DATA_FILE"
     else
-      print "  ⚠️ No ICU data file found! The package may not work correctly."
+      print "  ✅ No ICU data file found! Copy from source."
+      cp "$ICU_SOURCE/data/in/icudt${ICU_VERSION%%.*}l.dat" "$STANDARD_DATA_PATH"
     fi
   fi
 
@@ -218,72 +213,134 @@ build_icu() {
   cd "$INSTALL_DIR"
   zip -r "$ZIP_FILE" ./  >> "$BUILDLOG" 2>&1
   print "✅ Created $ZIP_FILE"
-  # chmod -R ugo+rwx "$DISTDIR"
+
+  chmod -R ugo+rwx "$WORKDIR"
+  chmod -R ugo+rwx "$DISTDIR"
 }
 
 
 show-build-matrix
 
 
-if [[ "$LINUX_32" == true || "$LINUX_64" == true ]]; then
-  # Linux builds
-  if [[ "$LINUX_32" == true ]]; then
-    build_icu "$LINUX_CLANG_TARGET_32" "" clang clang++ llvm-ar llvm-ranlib "" "-O2 -m32" "-O2 -m32"
-  fi
-  if [[ "$LINUX_64" == true ]]; then
-    build_icu "$LINUX_CLANG_TARGET_64" "" clang clang++ llvm-ar llvm-ranlib "" "-O2"      "-O2"
-  fi
+if [[ "$LINUX_32" == true ]]; then
+  TOOLS="clang-${CLANG_VERSION}"
+  TARGET="linux-x86-32"
+  ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}_${TARGET}_${TOOLS}.zip"
+  build_icu     \
+    "$TARGET"   \
+    ""          \
+    clang       \
+    clang++     \
+    llvm-ar     \
+    llvm-ranlib \
+    ""          \
+    "-O2 -m32"  \
+    "-O2 -m32"  \
+    "$ZIP_FILE"
+fi
+if [[ "$LINUX_64" == true ]]; then
+  TOOLS="clang-${CLANG_VERSION}"
+  TARGET="linux-x86-64"
+  ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}_${TARGET}_${TOOLS}.zip"
+  build_icu     \
+    "$TARGET"   \
+    ""          \
+    clang       \
+    clang++     \
+    llvm-ar     \
+    llvm-ranlib \
+    ""          \
+    "-O2"       \
+    "-O2"       \
+    "$ZIP_FILE"
 fi
 
-if [[ "$BUILD_WINDOWS" == true ]]; then
-  print_section "Build ICU for Windows"
+if [[ "$WINDOWS_32" == true ]]; then
+  TOOLS="clang-${CLANG_VERSION}"
+  TARGET="windows-x86-32"
+  ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}_${TARGET}_${TOOLS}.zip"
+  LINUX_BUILD_DIR="$WORKDIR/build-$LINUX_CLANG_TARGET_32"
+  build_icu                                 \
+    "$TARGET"                               \
+    i686-w64-mingw32                        \
+    "clang   --target=i686-w64-windows-gnu" \
+    "clang++ --target=i686-w64-windows-gnu" \
+    llvm-ar                                 \
+    llvm-ranlib                             \
+    "--with-cross-build=$LINUX_BUILD_DIR"   \
+    "-O2"                                   \
+    "-O2"                                   \
+    "$ZIP_FILE"
+fi
 
-  WINDOWS_CLANG_TARGET_64="windows-x86_64-clang-${ACTUAL_CLANG_VERSION%%.*}"
-  WINDOWS_CLANG_TARGET_32="windows-x86-32-clang-${ACTUAL_CLANG_VERSION%%.*}"
-
-  if [[ "$WINDOWS_32" == true ]]; then
-    build_icu "$WINDOWS_CLANG_TARGET_32" \
-      i686-w64-mingw32 \
-      "clang --target=i686-w64-windows-gnu" \
-      "clang++ --target=i686-w64-windows-gnu" \
-      llvm-ar llvm-ranlib \
-      "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_32" \
-      "-O2" "-O2"
-  fi
-
-  if [[ "$WINDOWS_64" == true ]]; then
-    build_icu "$WINDOWS_CLANG_TARGET_64" \
-      x86_64-w64-mingw32 \
-      "clang --target=x86_64-w64-windows-gnu" \
-      "clang++ --target=x86_64-w64-windows-gnu" \
-      llvm-ar llvm-ranlib \
-      "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_64" \
-      "-O2" "-O2"
-  fi
-
+if [[ "$WINDOWS_64" == true ]]; then
+  TOOLS="clang-${CLANG_VERSION}"
+  TARGET="windows-x86-64"
+  ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}_${TARGET}_${TOOLS}.zip"
+  LINUX_BUILD_DIR="$WORKDIR/build-$LINUX_CLANG_TARGET_64"
+  build_icu                                   \
+    "$TARGET"                                 \
+    x86_64-w64-mingw32                        \
+    "clang   --target=x86_64-w64-windows-gnu" \
+    "clang++ --target=x86_64-w64-windows-gnu" \
+    llvm-ar                                   \
+    llvm-ranlib                               \
+    "--with-cross-build=$LINUX_BUILD_DIR"     \
+    "-O2"                                     \
+    "-O2"                                     \
+    "$ZIP_FILE"
 fi
 
 # WASM builds
-if [[ "$BUILD_WASM" == true ]]; then
+if [[ "$WASM32" == true || "$WASM64" == true ]]; then
   print_section "Build WEB ASM"
   if [ ! -d emsdk ]; then
     git clone https://github.com/emscripten-core/emsdk.git
   fi
   cd emsdk
   EMSDK=$(pwd)
-  git checkout $ENSDK_VERSION
+  git switch $ENSDK_VERSION -c "v$ENSDK_VERSION"
   ./emsdk install latest    >> "$BUILDLOG" 2>&1
   ./emsdk activate latest   >> "$BUILDLOG" 2>&1
   cd -
+  print ""
 
   source "$EMSDK/emsdk_env.sh"
   cp "$WORKDIR/icu/source/config/mh-linux" "$WORKDIR/icu/source/config/mh-unknown"
 
   if [[ "$WASM32" == true ]]; then
-    build_icu "wasm-32" wasm32 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_32"
+    TOOLS="clang-${CLANG_VERSION}_emsdk-${ENSDK_VERSION}"
+    TARGET="wasm-32"
+    ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}_${TARGET}_${TOOLS}.zip"
+    LINUX_BUILD_DIR="$WORKDIR/build-$LINUX_CLANG_TARGET_32"
+    build_icu                               \
+      "wasm-32"                             \
+      wasm32                                \
+      emcc                                  \
+      em++                                  \
+      emar                                  \
+      emranlib                              \
+      "--with-cross-build=$LINUX_BUILD_DIR" \
+      "-O2"                                 \
+      "-O2"                                 \
+      "$ZIP_FILE"
   fi
   if [[ "$WASM64" == true ]]; then
-    build_icu "wasm-64" wasm64 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_64"
+    TOOLS="clang-${CLANG_VERSION}_emsdk-${ENSDK_VERSION}"
+    TARGET="wasm-64"
+    ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}_${TARGET}_${TOOLS}.zip"
+    LINUX_BUILD_DIR="$WORKDIR/build-$LINUX_CLANG_TARGET_64"
+    build_icu                               \
+      "wasm-64"                             \
+      wasm64                                \
+      emcc                                  \
+      em++                                  \
+      emar                                  \
+      emranlib                              \
+      "--with-cross-build=$LINUX_BUILD_DIR" \
+      "-O2"                                 \
+      "-O2"                                 \
+      "$ZIP_FILE"
   fi
 fi
 
