@@ -6,7 +6,7 @@
 # build.sh: Cross-compile ICU4C as static library for multiple platforms
 
 set -e
-set -x
+# set -x
 set -o pipefail
 
 
@@ -136,7 +136,7 @@ build_icu() {
       && ENABLE_TOOLS="--enable-tools"
 
   CROSS_COMPILE_DIR="${EXTRA_FLAGS#--with-cross-build=}"
-  if [[ -d "$CROSS_COMPILE_DIR/bin" ]]; then
+  if [[ "$CROSS_COMPILE_DIR" != "" && -d "$CROSS_COMPILE_DIR/bin" ]]; then
     # In the pipeline, the permission can be altered to be un-executable. This should fix it.
     print "Change permission"
     chmod 755 "$CROSS_COMPILE_DIR/bin"/* || true
@@ -159,8 +159,8 @@ build_icu() {
     >> "$BUILDLOG" 2>&1
     
 
-  make -j$(nproc) # >> "$BUILDLOG" 2>&1
-  make install    # >> "$BUILDLOG" 2>&1
+  make -j$(nproc) >> "$BUILDLOG" 2>&1
+  make install    >> "$BUILDLOG" 2>&1
 
   # Copy ICU headers to the install directory
   print "📋 Copying ICU headers to package..."
@@ -214,159 +214,7 @@ build_icu() {
   cd "$INSTALL_DIR"
   zip -r "$ZIP_FILE" ./  >> "$BUILDLOG" 2>&1
   print "✅ Created $ZIP_FILE"
-  chmod -R ugo+rwx "$DISTDIR"
-}
-
-build_wasm_llvm_ir_variant() {
-  local BITNESS="$1"
-  if [[ "$BITNESS" != "32" && "$BITNESS" != "64" ]]; then
-    echo "Usage: build_wasm_llvm_ir_variant <32|64>" >&2
-    exit 1
-  fi
-  local TARGET="wasm${BITNESS}"
-  local LLVM_IR_DIR="$DISTDIR/llvm-ir-${ACTUAL_CLANG_VERSION%%.*}/$TARGET"
-  local LLVM_BC_DIR="$DISTDIR/llvm-bc-${ACTUAL_CLANG_VERSION%%.*}/$TARGET"
-  mkdir -p "$LLVM_IR_DIR" "$LLVM_BC_DIR"
-
-  print_section "Generating LLVM IR/BC files for WebAssembly (${TARGET})"
-  if [[ "$DRY_RUN" == true ]]; then
-    echo "[DRY RUN] Would generate LLVM IR/BC for WebAssembly: BITNESS=$BITNESS TARGET=$TARGET (Clang ${ACTUAL_CLANG_VERSION%%.*})"
-    return 0
-  fi
-
-  find "$ICU_SOURCE" -name '*.cpp' \
-    ! -path '*/samples/*' \
-    ! -path '*/test/*' \
-    ! -path '*/perf/*' \
-    ! -path '*/tools/*' \
-    | while read -r cppfile; do
-
-    relpath=$(realpath --relative-to="$ICU_SOURCE" "$cppfile")
-    if grep -q 'LETypes.h' "$cppfile"; then
-      print "⚠️  Skipping $relpath (LETypes.h)"
-      continue
-    fi
-
-    mkdir -p "$LLVM_IR_DIR/$(dirname "$relpath")"
-    mkdir -p "$LLVM_BC_DIR/$(dirname "$relpath")"
-
-    macro=""
-    case "$cppfile" in
-      */common/*)   macro="-DU_COMMON_IMPLEMENTATION" ;;
-      */i18n/*)     macro="-DU_I18N_IMPLEMENTATION" ;;
-      */layoutex/*) macro="-DU_LAYOUTEX_IMPLEMENTATION" ;;
-      */io/*)       macro="-DU_IO_IMPLEMENTATION" ;;
-    esac
-
-    em_target="wasm${BITNESS}-unknown-emscripten"
-
-    em++ -std=c++23 -S -emit-llvm -target $em_target $macro \
-      -I"$ICU_SOURCE" -I"$ICU_SOURCE/common" -I"$ICU_SOURCE/i18n" \
-      -I"$ICU_SOURCE/layoutex" -I"$ICU_SOURCE/layout" -I"$ICU_SOURCE/io" \
-      "$cppfile" \
-      -o "$LLVM_IR_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).ll" \
-      >> "$BUILDLOG" 2>&1 \
-      || exit_with_error "Failed IR: $relpath"
-
-    em++ -std=c++23 -c -emit-llvm -O2 -target $em_target $macro \
-      -I"$ICU_SOURCE" -I"$ICU_SOURCE/common" -I"$ICU_SOURCE/i18n" \
-      -I"$ICU_SOURCE/layoutex" -I"$ICU_SOURCE/layout" -I"$ICU_SOURCE/io" \
-      "$cppfile" \
-      -o "$LLVM_BC_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).bc" \
-      >> "$BUILDLOG" 2>&1 \
-      || exit_with_error "Failed BC: $relpath"
-  done
-}
-
-build_llvm_ir_variant() {
-  local BITNESS="$1"
-  local CFLAGS=""
-  [[ "$BITNESS" == "32" ]] && CFLAGS="-m32"
-
-  local LLVM_IR_DIR="$DISTDIR/llvm-ir-${ACTUAL_CLANG_VERSION%%.*}/$BITNESS/$LINUX_CLANG_TARGET_$BITNESS"
-  local LLVM_BC_DIR="$DISTDIR/llvm-bc-${ACTUAL_CLANG_VERSION%%.*}/$BITNESS/$LINUX_CLANG_TARGET_$BITNESS"
-  mkdir -p "$LLVM_IR_DIR" "$LLVM_BC_DIR"
-
-  print_section "Generating LLVM IR/BC files for Clang ${ACTUAL_CLANG_VERSION%%.*} ($BITNESS-bit)"
-  if [[ "$DRY_RUN" == true ]]; then
-    echo "[DRY RUN] Would generate LLVM IR/BC for Linux: BITNESS=$BITNESS TARGET=$LINUX_CLANG_TARGET_$BITNESS (Clang ${ACTUAL_CLANG_VERSION%%.*})"
-    return 0
-  fi
-
-  find "$ICU_SOURCE" -name '*.cpp' \
-    ! -path '*/samples/*' \
-    ! -path '*/test/*'    \
-    ! -path '*/perf/*'    \
-    ! -path '*/tools/*'   \
-    | while read -r cppfile; do
-
-    relpath=$(realpath --relative-to="$ICU_SOURCE" "$cppfile")
-    if grep -q 'LETypes.h' "$cppfile"; then
-      print "⚠️  Skipping $relpath (LETypes.h)"
-      continue
-    fi
-
-    mkdir -p "$LLVM_IR_DIR/$(dirname "$relpath")"
-    mkdir -p "$LLVM_BC_DIR/$(dirname "$relpath")"
-
-    macro=""
-    case "$cppfile" in
-      */common/*)   macro="-DU_COMMON_IMPLEMENTATION"   ;;
-      */i18n/*)     macro="-DU_I18N_IMPLEMENTATION"     ;;
-      */layoutex/*) macro="-DU_LAYOUTEX_IMPLEMENTATION" ;;
-      */io/*)       macro="-DU_IO_IMPLEMENTATION"       ;;
-    esac
-
-    clang -std=c++23 -S -emit-llvm $CFLAGS $macro \
-      -I"$ICU_SOURCE"          \
-      -I"$ICU_SOURCE/common"   \
-      -I"$ICU_SOURCE/i18n"     \
-      -I"$ICU_SOURCE/layoutex" \
-      -I"$ICU_SOURCE/layout"   \
-      -I"$ICU_SOURCE/io"       \
-      "$cppfile"               \
-      -o "$LLVM_IR_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).ll" >> "$BUILDLOG" 2>&1 \
-      || exit_with_error "Failed IR: $relpath"
-
-    clang -std=c++23 -c -emit-llvm -O2 $CFLAGS $macro \
-      -I"$ICU_SOURCE"          \
-      -I"$ICU_SOURCE/common"   \
-      -I"$ICU_SOURCE/i18n"     \
-      -I"$ICU_SOURCE/layoutex" \
-      -I"$ICU_SOURCE/layout"   \
-      -I"$ICU_SOURCE/io"       \
-      "$cppfile"               \
-      -o "$LLVM_BC_DIR/$(dirname "$relpath")/$(basename "$cppfile" .cpp).bc" >> "$BUILDLOG" 2>&1 \
-      || exit_with_error "Failed BC: $relpath"
-  done
-
-  # Assemble the devkit
-  LLVM_KIT_DIR="$DISTDIR/llvm-kit-${ACTUAL_CLANG_VERSION%%.*}-$BITNESS"
-  if [[ "$BITNESS" == "32" ]]; then
-    LINUX_CLANG_TARGET="$LINUX_CLANG_TARGET_32"
-  elif [[ "$BITNESS" == "64" ]]; then
-    LINUX_CLANG_TARGET="$LINUX_CLANG_TARGET_64"
-  fi
-  
-  mkdir -p "$LLVM_KIT_DIR/llvm-ir" "$LLVM_KIT_DIR/llvm-bc"
-  rsync -a "$LLVM_IR_DIR/" "$LLVM_KIT_DIR/llvm-ir/"
-  rsync -a "$LLVM_BC_DIR/" "$LLVM_KIT_DIR/llvm-bc/"
-  rsync -a "$DISTDIR/$LINUX_CLANG_TARGET/include/" "$LLVM_KIT_DIR/include/"
-
-  # Add helper scripts
-  KIT_FILES="$WORKDIR/../artifacts/llvm-devkit"
-  if [ -f "$KIT_FILES/build-lib-from-llvm.sh" ]; then
-    cp "$KIT_FILES/build-lib-from-llvm.sh" "$LLVM_KIT_DIR/"
-  fi
-  if [ -f "$KIT_FILES/README.md" ]; then
-    cp "$KIT_FILES/README.md" "$LLVM_KIT_DIR/"
-  fi
-
-  # Create zip
-  ZIP_OUT="$DISTDIR/icu4c-${ICU_VERSION}-llvm-kit-${BITNESS}.zip"
-  zip -r "$ZIP_OUT" . >> "$BUILDLOG" 2>&1
-
-  print_status "✅ Created full LLVM kit zip ($BITNESS-bit): $ZIP_OUT"
+  # chmod -R ugo+rwx "$DISTDIR"
 }
 
 
@@ -377,15 +225,9 @@ if [[ "$LINUX_32" == true || "$LINUX_64" == true ]]; then
   # Linux builds
   if [[ "$LINUX_32" == true ]]; then
     build_icu "$LINUX_CLANG_TARGET_32" "" clang clang++ llvm-ar llvm-ranlib "" "-O2 -m32" "-O2 -m32"
-    if [[ "$BUILD_LLVMIR" == true && "$LLVMIR32" == true ]]; then
-      build_llvm_ir_variant 32
-    fi
   fi
   if [[ "$LINUX_64" == true ]]; then
     build_icu "$LINUX_CLANG_TARGET_64" "" clang clang++ llvm-ar llvm-ranlib "" "-O2"      "-O2"
-    if [[ "$BUILD_LLVMIR" == true && "$LLVMIR64" == true ]]; then
-      build_llvm_ir_variant 64
-    fi
   fi
 fi
 
@@ -435,17 +277,9 @@ if [[ "$BUILD_WASM" == true ]]; then
 
   if [[ "$WASM32" == true ]]; then
     build_icu "wasm32" wasm32 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_32"
-    
-    if [[ "$BUILD_LLVMIR" == true && "$LLVMIR32" == true ]]; then
-      build_wasm_llvm_ir_variant 32
-    fi
   fi
   if [[ "$WASM64" == true ]]; then
     build_icu "wasm64" wasm64 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_64"
-    
-    if [[ "$BUILD_LLVMIR" == true && "$LLVMIR64" == true ]]; then
-      build_wasm_llvm_ir_variant 64
-    fi
   fi
 fi
 
