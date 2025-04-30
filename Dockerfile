@@ -9,8 +9,8 @@ ENV CLANG_VERSION=${CLANG_VERSION}
 ENV ICU_VERSION=${ICU_VERSION}
 ENV ENSDK_VERSION=${ENSDK_VERSION}
 
-# Set non-interactive installation
-ARG DEBIAN_FRONTEND=noninteractive
+# Avoid interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Add i386 architecture
 RUN dpkg --add-architecture i386 && \

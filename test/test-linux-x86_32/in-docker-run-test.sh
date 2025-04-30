@@ -1,12 +1,15 @@
 #!/bin/bash
 set -e
 
+BITNESS=32
+CPP_VERSION=23
+
 # Extract the ICU package
 echo "Extracting ICU package..."
 rm -rf /app/icu /app/icu_data
 mkdir -p /app/icu /app/icu_data
 cd /app/icu
-unzip -q /app/icu4c-${ICU_VERSION}_linux-x86-32_clang-${CLANG_VERSION}.zip
+unzip -q /app/icu4c-${ICU_VERSION}_linux-x86-${BITNESS}_clang-${CLANG_VERSION}.zip
 echo "Extraction complete."
 
 # Set up ICU data path - ensure the data file is properly located
@@ -98,15 +101,15 @@ if [ -f "/app/common_cmake.txt" ]; then
 fi
 
 # Create a custom CMake toolchain file to handle ICU library linking properly
-cat > /app/icu_toolchain.cmake << 'EOF'
+cat > /app/icu_toolchain.cmake << EOF
 set(CMAKE_C_COMPILER "clang")
 set(CMAKE_CXX_COMPILER "clang++")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++23 -fPIC -D_GNU_SOURCE -m32")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c23 -fPIC -D_GNU_SOURCE -m32")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++${CPP_VERSION} -fPIC -D_GNU_SOURCE -m${BITNESS}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c${CPP_VERSION} -fPIC -D_GNU_SOURCE -m${BITNESS}")
 
 # Force static linking for ICU
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++ -static-libgcc -m32")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++ -static-libgcc -m${BITNESS}")
 
 # Define ICU linking helper function
 function(target_link_icu TARGET)
