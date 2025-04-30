@@ -106,18 +106,18 @@ fi
 cat > /app/icu_toolchain.cmake << EOF
 set(CMAKE_C_COMPILER "clang")
 set(CMAKE_CXX_COMPILER "clang++")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++${CPP_VERSION} -fPIC -D_GNU_SOURCE -m${BITNESS}")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c${CPP_VERSION} -fPIC -D_GNU_SOURCE -m${BITNESS}")
+set(CMAKE_CXX_FLAGS "\${CMAKE_CXX_FLAGS} -std=c++${CPP_VERSION} -fPIC -D_GNU_SOURCE -m${BITNESS}")
+set(CMAKE_C_FLAGS "\${CMAKE_C_FLAGS} -std=c${CPP_VERSION} -fPIC -D_GNU_SOURCE -m${BITNESS}")
 
 # Force static linking for ICU
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++ -static-libgcc -m${BITNESS}")
+set(CMAKE_EXE_LINKER_FLAGS "\${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++ -static-libgcc -m${BITNESS}")
 
 # Define ICU linking helper function
 function(target_link_icu TARGET)
-  target_compile_definitions(${TARGET} PRIVATE U_STATIC_IMPLEMENTATION)
+  target_compile_definitions(\${TARGET} PRIVATE U_STATIC_IMPLEMENTATION)
   # Link ICU libraries in the correct order with proper flags
-  target_link_libraries(${TARGET}
+  target_link_libraries(\${TARGET}
     -Wl,--whole-archive
     /app/icu/lib/libicudata.a
     -Wl,--no-whole-archive
