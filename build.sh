@@ -124,7 +124,11 @@ build_icu() {
   BUILD_DIR="$WORKDIR/build-$TARGET"
   INSTALL_DIR="$DISTDIR/$TARGET"
   # Determine toolchain tag for zip file
-  ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}-$TARGET.zip"
+  if [[ "$TARGET" == wasm32 || "$TARGET" == wasm64 ]]; then
+    ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}-$TARGET-clang-${ACTUAL_CLANG_VERSION%%.*}-emsdk-${ENSDK_VERSION}.zip"
+  else
+    ZIP_FILE="$DISTDIR/icu4c-${ICU_VERSION}-$TARGET.zip"
+  fi
 
   rm    -rf "$BUILD_DIR" "$INSTALL_DIR"
   mkdir -p  "$BUILD_DIR" "$INSTALL_DIR/bin" "$INSTALL_DIR/lib" "$INSTALL_DIR/include"
@@ -276,10 +280,10 @@ if [[ "$BUILD_WASM" == true ]]; then
   cp "$WORKDIR/icu/source/config/mh-linux" "$WORKDIR/icu/source/config/mh-unknown"
 
   if [[ "$WASM32" == true ]]; then
-    build_icu "wasm32" wasm32 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_32"
+    build_icu "wasm-32" wasm32 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_32"
   fi
   if [[ "$WASM64" == true ]]; then
-    build_icu "wasm64" wasm64 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_64"
+    build_icu "wasm-64" wasm64 emcc em++ emar emranlib "--with-cross-build=$WORKDIR/build-$LINUX_CLANG_TARGET_64"
   fi
 fi
 
