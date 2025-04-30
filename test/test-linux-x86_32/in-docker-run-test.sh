@@ -4,12 +4,6 @@ set -e
 BITNESS=32
 CPP_VERSION=23
 
-echo "ls -la /app"
-ls -la /app
-
-echo "ls -la /app/dist"
-ls -la /app/dist
-
 # Extract the ICU package
 echo "Extracting ICU package..."
 rm -rf /app/icu /app/icu_data

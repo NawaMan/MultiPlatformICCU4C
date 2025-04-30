@@ -66,16 +66,12 @@ if [[ ! -f "$SHARED_CMAKE" ]]; then
     exit 1
 fi
 
-VOLUMES="\
-    -v "$ICU_PACKAGE:/app/icu4c-${ICU_VERSION}_linux-x86-$BITNESS_clang-${CLANG_VERSION}.zip:ro" \
-    -v "$SHARED_TEST_CPP:/app/test.cpp:ro" \
-    -v "$SHARED_CMAKE:/app/CMakeLists.txt.common:ro""
-
-echo "VOLUMES: $VOLUMES"
-
 # Run the container with all necessary volumes
 echo -e "\n${YELLOW}=== Running ICU4C tests ===${NC}"
-docker run --rm $VOLUMES \
+docker run --rm \
+    -v "$ICU_PACKAGE:/app/icu4c-${ICU_VERSION}_linux-x86-${BITNESS}_clang-${CLANG_VERSION}.zip:ro" \
+    -v "$SHARED_TEST_CPP:/app/test.cpp:ro"                                                         \
+    -v "$SHARED_CMAKE:/app/CMakeLists.txt.common:ro"                                               \
     icu4c-test-linux-x86_$BITNESS
 
 echo -e "\n${GREEN}✅ Tests completed successfully!${NC}"
