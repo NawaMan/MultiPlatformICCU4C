@@ -1,33 +1,54 @@
 FROM ubuntu:24.04
 
-ARG ICU_VERSION=77.1
+# Set environment variable for Clang version
 ARG CLANG_VERSION=20
+ARG ICU_VERSION=77.1
 
-ENV ICU_VERSION=${ICU_VERSION}
 ENV CLANG_VERSION=${CLANG_VERSION}
+ENV ICU_VERSION=${ICU_VERSION}
 
-# Install necessary packages
+# Set non-interactive installation
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Add i386 architecture
+RUN dpkg --add-architecture i386 && \
+    apt-get update
+
+RUN apt-get update && apt-get install -y wget gnupg lsb-release software-properties-common
+RUN wget https://apt.llvm.org/llvm.sh
+RUN chmod +x llvm.sh || true
+RUN ./llvm.sh ${CLANG_VERSION}
+
+# Update and install dependencies
 RUN apt-get update && apt-get install -y \
+    acl \
+    autoconf \
+    automake \
     build-essential \
     cmake \
-    wget \
+    coreutils \
+    curl \
+    g++-multilib \
+    gcc-multilib \
+    git \
+    libc6-dev-i386 \
+    libstdc++-13-dev:i386 \
+    libxml2-dev \
+    pkg-config \
+    python3 \
+    rsync \
+    sed \
+    tar \
+    tree \
     unzip \
-    libicu-dev \
-    gnupg \
-    lsb-release \
-    software-properties-common \
+    zip \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install LLVM and Clang
-RUN wget https://apt.llvm.org/llvm.sh \
- && chmod +x llvm.sh \
- && ./llvm.sh ${CLANG_VERSION} \
- && rm llvm.sh
-
-# Create symlinks for clang and LLVM tools
-RUN update-alternatives --install /usr/bin/clang   clang   /usr/bin/clang-${CLANG_VERSION} 100 \
+# Create symlinks for clang and LLVM tools to be available without version suffix
+RUN update-alternatives --install /usr/bin/clang   clang   /usr/bin/clang-${CLANG_VERSION}   100 \
  && update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${CLANG_VERSION} 100 \
- && ln -sf /usr/bin/llvm-ar-${CLANG_VERSION} /usr/bin/llvm-ar \
+ && ln -sf /usr/bin/llvm-ar-${CLANG_VERSION}     /usr/bin/llvm-ar \
  && ln -sf /usr/bin/llvm-ranlib-${CLANG_VERSION} /usr/bin/llvm-ranlib
 
 # Set up working directory
@@ -51,7 +72,7 @@ COPY ./CMakeLists.txt /app/
 
 # Build and run commands will be provided in a separate script
 COPY ./in-docker-run-test.sh /app/
-RUN chmod +x /app/in-docker-run-test.sh
+RUN chmod +x /app/in-docker-run-test.sh || true
 
 # Default command
 CMD ["/bin/bash", "/app/in-docker-run-test.sh"]

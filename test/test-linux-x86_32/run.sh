@@ -19,7 +19,7 @@ if [[ -z "$ICU_VERSION" || -z "$CLANG_VERSION" ]]; then
 fi
 
 # Check if the ICU package exists
-ICU_PACKAGE="$ROOT_DIR/dist/icu4c-${ICU_VERSION}-linux-x86_32-clang-${CLANG_VERSION}.zip"
+ICU_PACKAGE="$ROOT_DIR/dist/icu4c-${ICU_VERSION}_linux-x86-32_clang-${CLANG_VERSION}.zip"
 if [[ ! -f "$ICU_PACKAGE" ]]; then
     echo -e "\n${YELLOW}ICU package not found: $ICU_PACKAGE${NC}"
     echo -e "Building ICU package first..."
@@ -64,7 +64,7 @@ docker build --no-cache \
 # Run the container with all necessary volumes
 echo -e "\n${YELLOW}=== Running ICU4C tests (32-bit) ===${NC}"
 docker run --rm \
-    -v "$ICU_PACKAGE:/app/icu4c-${ICU_VERSION}-linux-x86_32-clang-${CLANG_VERSION}.zip:ro" \
+    -v "$ICU_PACKAGE:/app/icu4c-${ICU_VERSION}_linux-x86-32_clang-${CLANG_VERSION}.zip:ro" \
     -v "$SHARED_TEST_CPP:/app/test.cpp:ro" \
     -v "$SHARED_CMAKE:/app/CMakeLists.txt.common:ro" \
     icu4c-test-linux-x86_32

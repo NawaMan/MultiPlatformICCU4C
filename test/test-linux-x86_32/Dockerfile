@@ -36,7 +36,7 @@ ENV CLANG_VERSION=${CLANG_VERSION}
 
 # Install LLVM/Clang
 RUN wget https://apt.llvm.org/llvm.sh && \
-    chmod +x llvm.sh && \
+    chmod +x llvm.sh || true && \
     ./llvm.sh ${CLANG_VERSION} && \
     rm llvm.sh
 
@@ -60,7 +60,7 @@ ENV LDFLAGS="-m32"
 # Copy CMakeLists.txt and build script
 COPY ./CMakeLists.txt /app/
 COPY ./in-docker-run-test.sh /app/
-RUN chmod +x /app/in-docker-run-test.sh
+RUN chmod +x /app/in-docker-run-test.sh || true
 
 # Default command
 CMD ["/bin/bash", "/app/in-docker-run-test.sh"]

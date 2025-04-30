@@ -6,7 +6,7 @@ echo "Extracting ICU package..."
 rm -rf /app/icu /app/icu_data
 mkdir -p /app/icu /app/icu_data
 cd /app/icu
-unzip -q /app/icu4c-${ICU_VERSION}-linux-x86_64-clang-${CLANG_VERSION}.zip
+unzip -q /app/icu4c-${ICU_VERSION}_linux-x86-64_clang-${CLANG_VERSION}.zip
 echo "Extraction complete."
 
 # Set up ICU data path - ensure the data file is properly located

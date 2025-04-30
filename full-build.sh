@@ -34,7 +34,7 @@ echo "==========================================================================
 mkdir -p "$WORKDIR"
 mkdir -p "$DISTDIR"
 chown -R $(id -u):$(id -gn) $DISTDIR || true
-chmod g+s $DISTDIR
+chmod g+s $DISTDIR  || true
 setfacl -d -m g:$(id -gn):rwx $DISTDIR || true
 setfacl    -m g:$(id -gn):rwx $DISTDIR || true
 
@@ -86,7 +86,7 @@ set +e
 set +x
 set +o pipefail
 
-pushd "$DISTDIR"
+pushd "$DISTDIR" > /dev/null 2>&1
 
 print_status  "Built directories:"
 ls -ld */    | tee -a "$BUILDLOG"
@@ -94,7 +94,7 @@ ls -ld */    | tee -a "$BUILDLOG"
 print_status "Zip archives:"
 ls -l *.zip  | tee -a "$BUILDLOG"
 
-popd
+popd > /dev/null 2>&1
 
 print_status "Detail build log can be found at: "
 print $BUILDLOG

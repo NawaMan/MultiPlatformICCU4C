@@ -93,7 +93,7 @@ jobs:
         run: |
           VERSION="${{ needs.release.outputs.version }}"
           echo "Building macOS release for version $VERSION"
-          chmod +x mac-build.sh
+          chmod +x mac-build.sh || true
           
           # mac-build.sh does not concern the QUICK_BUILD variable.
           ./mac-build.sh --icu-version 77.1

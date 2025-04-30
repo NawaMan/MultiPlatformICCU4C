@@ -214,8 +214,8 @@ build_icu() {
   zip -r "$ZIP_FILE" ./  >> "$BUILDLOG" 2>&1
   print "✅ Created $ZIP_FILE"
 
-  chmod -R ugo+rwx "$WORKDIR"
-  chmod -R ugo+rwx "$DISTDIR"
+  chmod -R ugo+rwx "$WORKDIR" || true
+  chmod -R ugo+rwx "$DISTDIR" || true
 }
 
 

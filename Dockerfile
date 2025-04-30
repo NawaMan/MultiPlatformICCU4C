@@ -18,7 +18,7 @@ RUN dpkg --add-architecture i386 && \
 
 RUN apt-get update && apt-get install -y wget gnupg lsb-release software-properties-common
 RUN wget https://apt.llvm.org/llvm.sh
-RUN chmod +x llvm.sh
+RUN chmod +x llvm.sh  || true
 RUN ./llvm.sh ${CLANG_VERSION}
 
 # Update and install dependencies
@@ -71,7 +71,7 @@ COPY common-source.sh /app/
 COPY artifacts        /app/artifacts
 
 # Make the script executable
-RUN chmod +x /app/build.sh
+RUN chmod +x /app/build.sh  || true
 
 # Set the entrypoint to the build script
 ENTRYPOINT ["/bin/bash", "/app/build.sh"]
