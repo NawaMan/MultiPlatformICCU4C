@@ -9,7 +9,9 @@ echo "Extracting ICU package..."
 rm -rf /app/icu /app/icu_data
 mkdir -p /app/icu /app/icu_data
 cd /app/icu
-unzip -q /app/icu4c-${ICU_VERSION}_linux-x86-${BITNESS}_clang-${CLANG_VERSION}.zip
+echo "ZIP file: "$(find /app -iname "icu4c*_linux-*-${BITNESS}_*.zip")
+ls -la /app
+unzip -q $(find /app -iname "icu4c*_linux-*-${BITNESS}_*.zip")
 echo "Extraction complete."
 
 # Set up ICU data path - ensure the data file is properly located
