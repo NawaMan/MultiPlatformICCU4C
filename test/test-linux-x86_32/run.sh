@@ -71,6 +71,8 @@ VOLUMES="\
     -v "$SHARED_TEST_CPP:/app/test.cpp:ro" \
     -v "$SHARED_CMAKE:/app/CMakeLists.txt.common:ro""
 
+echo "VOLUMES: $VOLUMES"
+
 # Run the container with all necessary volumes
 echo -e "\n${YELLOW}=== Running ICU4C tests ===${NC}"
 docker run --rm $VOLUMES \

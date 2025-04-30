@@ -4,13 +4,18 @@ set -e
 BITNESS=32
 CPP_VERSION=23
 
+echo "ls -la /app"
+ls -la /app
+
+echo "ls -la /app/dist"
+ls -la /app/dist
+
 # Extract the ICU package
 echo "Extracting ICU package..."
 rm -rf /app/icu /app/icu_data
 mkdir -p /app/icu /app/icu_data
 cd /app/icu
 echo "ZIP file: "$(find /app -iname "icu4c*_linux-*-${BITNESS}_*.zip")
-ls -la /app
 unzip -q $(find /app -iname "icu4c*_linux-*-${BITNESS}_*.zip")
 echo "Extraction complete."
 
