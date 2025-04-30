@@ -2,8 +2,11 @@
 cmake_minimum_required(VERSION 3.14)
 project(icu4c_test)
 
+# Set ICU version
+set(ICU4C_VERSION 77.1)
+
 # Set C++ standard - using C++23 for modern features
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD          23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Ensure proper handling of different platforms
@@ -42,11 +45,11 @@ if(NOT DEFINED ICU_DATA_DIR)
         set(ICU_DATA_DIR $ENV{ICU_DATA})
     else()
         # Check common locations for the ICU data file
-        if(EXISTS "${ICU_ROOT}/share/icu/77.1/icudt77l.dat")
-            set(ICU_DATA_DIR "${ICU_ROOT}/share/icu/77.1")
-        elseif(EXISTS "${ICU_ROOT}/share/icu/current/icudt77l.dat")
+        if(EXISTS "${ICU_ROOT}/share/icu/${ICU4C_VERSION}/icudt${ICU4C_VERSION%%.*}l.dat")
+            set(ICU_DATA_DIR "${ICU_ROOT}/share/icu/${ICU4C_VERSION}")
+        elseif(EXISTS "${ICU_ROOT}/share/icu/current/icudt${ICU4C_VERSION%%.*}l.dat")
             set(ICU_DATA_DIR "${ICU_ROOT}/share/icu/current")
-        elseif(EXISTS "${ICU_ROOT}/data/icudt77l.dat")
+        elseif(EXISTS "${ICU_ROOT}/data/icudt${ICU4C_VERSION%%.*}l.dat")
             set(ICU_DATA_DIR "${ICU_ROOT}/data")
         else()
             # Default to a subdirectory of ICU_ROOT

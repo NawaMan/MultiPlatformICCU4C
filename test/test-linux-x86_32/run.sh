@@ -1,12 +1,14 @@
 #!/bin/bash
 set -e
 
+BITNESS=32
+
 # Colors for output
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}=== Building ICU4C test container (32-bit) ===${NC}"
+echo -e "${YELLOW}=== Building ICU4C test container (${BITNESS}-bit) ===${NC}"
 
 # Get ICU and Clang versions from environment or use defaults from versions.env
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -19,15 +21,15 @@ if [[ -z "$ICU_VERSION" || -z "$CLANG_VERSION" ]]; then
 fi
 
 # Check if the ICU package exists
-ICU_PACKAGE="$ROOT_DIR/dist/icu4c-${ICU_VERSION}_linux-x86-32_clang-${CLANG_VERSION}.zip"
+ICU_PACKAGE="$ROOT_DIR/dist/icu4c-${ICU_VERSION}_linux-x86-${BITNESS}_clang-${CLANG_VERSION}.zip"
 if [[ ! -f "$ICU_PACKAGE" ]]; then
     echo -e "\n${YELLOW}ICU package not found: $ICU_PACKAGE${NC}"
     echo -e "Building ICU package first..."
     
     # Check if we should do a quick build
     if [[ "$(uname -s)" == "Linux" ]]; then
-        echo -e "Running build with LINUX_32=true..."
-        (cd "$ROOT_DIR" && export LINUX_32=true && ./build.sh)
+        echo -e "Running build with LINUX_${BITNESS}=true..."
+        (cd "$ROOT_DIR" && export LINUX_${BITNESS}=true && ./build.sh)
     fi
     
     # Check again if the package exists
@@ -37,9 +39,18 @@ if [[ ! -f "$ICU_PACKAGE" ]]; then
     fi
 fi
 
-# Run the container with volumes for ICU package and shared test files
-echo -e "\n${YELLOW}=== Building and running test container (32-bit) ===${NC}"
+echo -e "\n${YELLOW}=== Building and running test container ===${NC}"
 echo -e "ICU Package: ${GREEN}$ICU_PACKAGE${NC}"
+
+# Build the Docker image
+docker build --no-cache                      \
+    --build-arg ICU_VERSION=$ICU_VERSION     \
+    --build-arg CLANG_VERSION=$CLANG_VERSION \
+    --build-arg BITNESS=$BITNESS             \
+    -t icu4c-test-linux-x86_$BITNESS .
+
+# Run the container with volumes for ICU package and shared test files
+echo -e "\n${YELLOW}=== Running ICU4C tests ===${NC}"
 
 # Ensure shared test files are available
 SHARED_TEST_CPP="$SCRIPT_DIR/../test.cpp"
@@ -55,18 +66,14 @@ if [[ ! -f "$SHARED_CMAKE" ]]; then
     exit 1
 fi
 
-# Build the Docker image
-docker build --no-cache \
-    --build-arg ICU_VERSION=$ICU_VERSION \
-    --build-arg CLANG_VERSION=$CLANG_VERSION \
-    -t icu4c-test-linux-x86_32 .
+VOLUMES="\
+    -v "$ICU_PACKAGE:/app/icu4c-${ICU_VERSION}_linux-x86-$BITNESS_clang-${CLANG_VERSION}.zip:ro" \
+    -v "$SHARED_TEST_CPP:/app/test.cpp:ro" \
+    -v "$SHARED_CMAKE:/app/CMakeLists.txt.common:ro""
 
 # Run the container with all necessary volumes
-echo -e "\n${YELLOW}=== Running ICU4C tests (32-bit) ===${NC}"
-docker run --rm \
-    -v "$ICU_PACKAGE:/app/icu4c-${ICU_VERSION}_linux-x86-32_clang-${CLANG_VERSION}.zip:ro" \
-    -v "$SHARED_TEST_CPP:/app/test.cpp:ro" \
-    -v "$SHARED_CMAKE:/app/CMakeLists.txt.common:ro" \
-    icu4c-test-linux-x86_32
+echo -e "\n${YELLOW}=== Running ICU4C tests ===${NC}"
+docker run --rm $VOLUMES \
+    icu4c-test-linux-x86_$BITNESS
 
-echo -e "\n${GREEN}\u2705 Tests completed successfully!${NC}"
+echo -e "\n${GREEN}✅ Tests completed successfully!${NC}"

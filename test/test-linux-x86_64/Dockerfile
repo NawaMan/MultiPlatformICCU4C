@@ -27,7 +27,6 @@ RUN apt-get update                 \
         g++-multilib               \
         gcc-multilib               \
         gnupg                      \
-        libstdc++-13-dev:i386      \
         lsb-release                \
         pkg-config                 \
         python3                    \

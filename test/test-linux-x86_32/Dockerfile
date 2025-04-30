@@ -21,7 +21,8 @@ RUN dpkg --add-architecture i386
 RUN apt-get update         \
  && apt-get install -y     \
         libc6-dev:i386     \
-        libgcc-13-dev:i386
+        libgcc-13-dev:i386 \
+        libstdc++-13-dev:i386
 
 RUN apt-get update                 \
     && apt-get install -y             \
@@ -34,7 +35,6 @@ RUN apt-get update                 \
         g++-multilib               \
         gcc-multilib               \
         gnupg                      \
-        libstdc++-13-dev:i386      \
         lsb-release                \
         pkg-config                 \
         python3                    \
