@@ -44,7 +44,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-32.zip
-          path: dist/*-linux-32-*.zip
+          path: dist/*_linux-*-32_*.zip
           retention-days: 7
 
   build-linux-64:
@@ -82,7 +82,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-64.zip
-          path: dist/*-linux-64-*.zip
+          path: dist/*_linux-*-64_*.zip
           retention-days: 7
 
   macos:
@@ -158,7 +158,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-32.zip
-          path: dist/*-windows-32-*.zip
+          path: dist/*_windows-*-32_.zip
           retention-days: 7
 
   build-windows-64:
@@ -189,7 +189,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-64.zip
-          path: dist/*-windows-64-*.zip
+          path: dist/*_windows-*-64_.zip
           retention-days: 7
 
   build-wasm-32:
@@ -220,7 +220,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wasm-32.zip
-          path: dist/*-wasm-32-*.zip
+          path: dist/*_wasm-*-32_.zip
           retention-days: 7
 
   build-wasm-64:
@@ -251,7 +251,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wasm-64.zip
-          path: dist/*-wasm-64-*.zip
+          path: dist/*_wasm-*-64_.zip
           retention-days: 7
 
   test-linux-x86_32:
@@ -270,15 +270,6 @@ jobs:
 
       - name: Run Linux x86_32 Tests
         run: |
-          echo pwd
-          pwd
-          echo "--------------------------------"
-          echo ls -la
-          ls -la
-          echo "--------------------------------"
-          echo ls -la dist
-          ls -la dist
-          echo "--------------------------------"
           cd test/test-linux-x86_32
           ./run.sh
 
@@ -299,14 +290,5 @@ jobs:
 
       - name: Run Linux x86_64 Tests
         run: |
-          echo pwd
-          pwd
-          echo "--------------------------------"
-          echo ls -la
-          ls -la
-          echo "--------------------------------"
-          echo ls -la dist
-          ls -la dist
-          echo "--------------------------------"
           cd test/test-linux-x86_64
           ./run.sh

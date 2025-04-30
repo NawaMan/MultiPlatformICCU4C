@@ -82,10 +82,6 @@ else
     exit 1
 fi
 
-# Check library directory
-echo "
-ICU library directory:"
-ls -la lib
 
 # Create build directory
 mkdir -p /app/build

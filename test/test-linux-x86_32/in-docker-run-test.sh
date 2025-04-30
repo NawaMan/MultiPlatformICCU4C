@@ -82,13 +82,6 @@ else
     exit 1
 fi
 
-# No need for compatibility wrapper when using C++23/C23 standards
-cd /app/icu
-
-# Check library directory
-echo "
-ICU library directory:"
-ls -la lib
 
 # Create build directory
 mkdir -p /app/build
