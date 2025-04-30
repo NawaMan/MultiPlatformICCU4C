@@ -265,11 +265,20 @@ jobs:
       - name: Download Linux build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: linux-build-artifacts-32
+          name: linux-dist-artifacts-32
           path: dist
 
       - name: Run Linux x86_32 Tests
         run: |
+          echo pwd
+          pwd
+          echo "--------------------------------"
+          echo ls -la
+          ls -la
+          echo "--------------------------------"
+          echo ls -la dist
+          ls -la dist
+          echo "--------------------------------"
           cd test/test-linux-x86_32
           ./run.sh
 
@@ -285,10 +294,19 @@ jobs:
       - name: Download Linux build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: linux-build-artifacts-64
+          name: linux-dist-artifacts-64
           path: dist
 
       - name: Run Linux x86_64 Tests
         run: |
+          echo pwd
+          pwd
+          echo "--------------------------------"
+          echo ls -la
+          ls -la
+          echo "--------------------------------"
+          echo ls -la dist
+          ls -la dist
+          echo "--------------------------------"
           cd test/test-linux-x86_64
           ./run.sh

@@ -46,6 +46,9 @@ RUN update-alternatives --install /usr/bin/clang   clang   /usr/bin/clang-${CLAN
     ln -sf /usr/bin/llvm-ar-${CLANG_VERSION} /usr/bin/llvm-ar && \
     ln -sf /usr/bin/llvm-ranlib-${CLANG_VERSION} /usr/bin/llvm-ranlib
 
+RUN which clang
+RUN which clang++
+
 # Set up working directory
 WORKDIR /app
 
