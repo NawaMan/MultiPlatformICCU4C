@@ -100,7 +100,7 @@ jobs:
           brew list ninja || brew install ninja
 
       - name: Prepare ICU source
-        run: |        
+        run: |
           WORKDIR=$(pwd)/build
           DISTDIR=$(pwd)/dist
           BUILDLOG="$DISTDIR/build.log"
@@ -119,7 +119,7 @@ jobs:
         run: |
           echo "Building macOS release for version $VERSION"
           chmod +x mac-build.sh || true
-          
+
           # mac-build.sh does not concern the QUICK_BUILD variable.
           ./mac-build.sh
 
@@ -292,3 +292,39 @@ jobs:
         run: |
           cd test/test-linux-x86_64
           ./run.sh
+
+  test-windows-x64:
+    name: Test Windows x64
+    needs: build-windows-64
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Visual Studio environment
+        uses: microsoft/setup-msbuild@v1.1
+
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Download Windows build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-64.zip
+          path: dist
+
+      - name: Run Windows x64 Tests
+        run: |
+          cd test\test-windows-x64
+          .\run.bat
+        shell: cmd
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-test-logs
+          path: |
+            ${{ runner.temp }}\icu4c-test\build\*.log
+            ${{ runner.temp }}\icu4c-test\build\CMakeFiles\CMakeOutput.log
+            ${{ runner.temp }}\icu4c-test\build\CMakeFiles\CMakeError.log
