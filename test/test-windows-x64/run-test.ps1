@@ -178,68 +178,43 @@ Copy-Item -Path $PlatformCMake -Destination (Join-Path $TestDir "CMakeLists.txt"
 # Set environment variables
 $env:ICU_ROOT = $ICUDir
 
-# Create a custom CMake toolchain file
+# Find ICU libraries
+$LibDir = Join-Path $ICUDir "lib"
+$LibFiles = @()
+if (Test-Path $LibDir) {
+    $LibFiles = Get-ChildItem -Path $LibDir -Filter "*.lib" -ErrorAction SilentlyContinue
+}
+
+Write-Host "Found ICU libraries:"
+foreach ($Lib in $LibFiles) {
+    Write-Host "  $($Lib.Name)"
+}
+
+# Create a very simple CMake toolchain file without string interpolation
 $ToolchainFile = Join-Path $TestDir "icu_toolchain.cmake"
-
-# Convert ICU directory path to CMake format (forward slashes)
 $ICUDirCMake = $ICUDir.Replace('\', '/')
+$ICUDataDirCMake = $ICUDataDir.Replace('\', '/')
 
-# Create the toolchain file content
 $ToolchainContent = @"
 # Use MSVC compiler
 set(CMAKE_CXX_COMPILER "cl.exe")
 set(CMAKE_C_COMPILER "cl.exe")
 
 # Set compiler flags
-set(CMAKE_CXX_FLAGS "\${CMAKE_CXX_FLAGS} /std:c++$CPP_VERSION /EHsc /D_CRT_SECURE_NO_WARNINGS /DNOMINMAX")
-set(CMAKE_C_FLAGS "\${CMAKE_C_FLAGS} /D_CRT_SECURE_NO_WARNINGS /DNOMINMAX")
+set(CMAKE_CXX_FLAGS "/std:c++$CPP_VERSION /EHsc /D_CRT_SECURE_NO_WARNINGS /DNOMINMAX")
+set(CMAKE_C_FLAGS "/D_CRT_SECURE_NO_WARNINGS /DNOMINMAX")
 
 # Force static linking for ICU
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
 
+# Set ICU paths
+set(ICU_ROOT "$ICUDirCMake")
+set(ICU_DATA_DIR "$ICUDataDirCMake")
+
 # Define ICU linking helper function
 function(target_link_icu TARGET)
-  target_compile_definitions(\${TARGET} PRIVATE U_STATIC_IMPLEMENTATION)
-  # Link ICU libraries in the correct order
-  target_link_libraries(\${TARGET}
-"@
-
-# Check which ICU libraries exist and add them to the toolchain file
-$LibsToCheck = @(
-    "sicudt.lib", 
-    "sicuin.lib", 
-    "sicuuc.lib", 
-    "sicuio.lib",
-    "icudt.lib",
-    "icuin.lib",
-    "icuuc.lib",
-    "icuio.lib"
-)
-
-$LibsFound = @()
-foreach ($Lib in $LibsToCheck) {
-    $LibPath = Join-Path $ICUDir "lib\$Lib"
-    if (Test-Path $LibPath) {
-        $LibPathCMake = $LibPath.Replace('\', '/')
-        $LibsFound += "    `"$LibPathCMake`""
-    }
-}
-
-# If no libraries found, try to find them in alternative locations
-if ($LibsFound.Count -eq 0) {
-    Write-Host "No standard ICU libraries found, searching for alternatives..."
-    $LibFiles = Get-ChildItem -Path (Join-Path $ICUDir "lib") -Filter "*.lib" -ErrorAction SilentlyContinue
-    foreach ($LibFile in $LibFiles) {
-        $LibPathCMake = $LibFile.FullName.Replace('\', '/')
-        $LibsFound += "    `"$LibPathCMake`""
-    }
-}
-
-# Add the libraries to the toolchain file
-$ToolchainContent += $LibsFound -join "`n"
-$ToolchainContent += @"
-
-    advapi32.lib)
+  target_compile_definitions(${TARGET} PRIVATE U_STATIC_IMPLEMENTATION)
+  target_link_libraries(${TARGET} advapi32)
 endfunction()
 "@
 
@@ -250,13 +225,64 @@ $ToolchainContent | Out-File -FilePath $ToolchainFile -Encoding utf8
 Write-Host "Created toolchain file:"
 Get-Content $ToolchainFile | ForEach-Object { Write-Host $_ }
 
+# Create a direct CMakeLists.txt file for testing
+$TestCMakeFile = Join-Path $TestDir "direct_test.cmake"
+$TestCppPath = Join-Path $TestDir "test.cpp"
+$TestCppPathCMake = $TestCppPath.Replace('\', '/')
+
+$TestCMakeContent = @"
+cmake_minimum_required(VERSION 3.14)
+project(ICU_Test)
+
+# Set C++ standard
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Windows-specific settings
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+add_compile_definitions(NOMINMAX)
+
+# Use static libraries
+set(BUILD_SHARED_LIBS OFF)
+
+# Set ICU paths
+set(ICU_ROOT "$ICUDirCMake")
+set(ICU_DATA_DIR "$ICUDataDirCMake")
+include_directories(${ICU_ROOT}/include)
+
+# Add the test executable
+add_executable(icu_test "$TestCppPathCMake")
+
+# Add compile definitions
+target_compile_definitions(icu_test PRIVATE U_STATIC_IMPLEMENTATION)
+target_compile_definitions(icu_test PRIVATE ICU_ROOT="${ICU_ROOT}")
+target_compile_definitions(icu_test PRIVATE ICU_DATA_DIR="${ICU_DATA_DIR}")
+
+# Link ICU libraries
+"@
+
+# Add library linking based on what we found
+$LibLinkingCode = "target_link_libraries(icu_test"
+foreach ($Lib in $LibFiles) {
+    $LibPathCMake = $Lib.FullName.Replace('\', '/')
+    $LibLinkingCode += " `"$LibPathCMake`""
+}
+$LibLinkingCode += " advapi32)"
+
+$TestCMakeContent += $LibLinkingCode
+$TestCMakeContent | Out-File -FilePath $TestCMakeFile -Encoding utf8
+
 # Configure and build the test program
-Write-Host "Configuring with CMake..."
+Write-Host "Configuring with CMake using direct file..."
 try {
-    & cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE="$ToolchainFile" -DENABLE_ICU_EXAMPLES=ON -DICU_DATA_DIR="$ICUDataDir" $TestDir
+    & cmake -G "Visual Studio 17 2022" -A x64 -P "$TestCMakeFile"
+    & cmake -G "Visual Studio 17 2022" -A x64 "$TestDir"
 } catch {
     Write-Host "Error during CMake configuration: $_"
-    exit 1
+    # Try a simpler approach
+    Write-Host "Trying alternative CMake approach..."
+    & cmake -G "Visual Studio 17 2022" -A x64 -DICU_ROOT="$ICUDirCMake" -DICU_DATA_DIR="$ICUDataDirCMake" "$TestDir"
 }
 
 Write-Host "Building test program..."
