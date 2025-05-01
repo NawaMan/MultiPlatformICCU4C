@@ -313,6 +313,12 @@ jobs:
           name: windows-64.zip
           path: dist
 
+      - name: List downloaded artifacts
+        run: |
+          dir dist
+          dir dist\*.zip
+        shell: cmd
+
       - name: Run Windows x64 Tests
         run: |
           cd test\test-windows-x64

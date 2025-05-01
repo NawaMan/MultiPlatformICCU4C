@@ -25,8 +25,33 @@ Write-Host "Extracting ICU package: $ICUPackage"
 $ICUDir = Join-Path $TestDir "icu"
 New-Item -ItemType Directory -Path $ICUDir | Out-Null
 
+# Check if the ICU package exists
+if (-not (Test-Path $ICUPackage)) {
+    Write-Host "Error: ICU package not found at $ICUPackage"
+    Write-Host "Looking for alternative packages..."
+
+    # Try to find any ICU package in the dist directory
+    $ParentDir = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+    $DistDir = Join-Path $ParentDir "dist"
+    $AlternativePackages = Get-ChildItem -Path $DistDir -Filter "*windows*64*.zip"
+
+    if ($AlternativePackages.Count -gt 0) {
+        $ICUPackage = $AlternativePackages[0].FullName
+        Write-Host "Found alternative package: $ICUPackage"
+    } else {
+        Write-Host "No ICU packages found in $DistDir"
+        exit 1
+    }
+}
+
 # Use PowerShell to extract the ZIP file
-Expand-Archive -Path $ICUPackage -DestinationPath $ICUDir
+Write-Host "Extracting: $ICUPackage to $ICUDir"
+try {
+    Expand-Archive -Path $ICUPackage -DestinationPath $ICUDir -Force
+} catch {
+    Write-Host "Error extracting ZIP file: $_"
+    exit 1
+}
 
 # Display the package structure
 Write-Host "ICU package contents:"
@@ -39,10 +64,10 @@ if (Test-Path $IncludeDir) {
     Get-ChildItem -Path $IncludeDir -File | Select-Object -First 10 | Format-Table -AutoSize
 } else {
     Write-Host "ICU include directory not found. Creating from source..."
-    
+
     # Create include directory structure
     New-Item -ItemType Directory -Path $IncludeDir -Force | Out-Null
-    
+
     # Copy header files from common, i18n, and io directories
     $CommonDir = Join-Path $ICUDir "common"
     if (Test-Path $CommonDir) {
@@ -51,7 +76,7 @@ if (Test-Path $IncludeDir) {
             Copy-Item -Path $_.FullName -Destination $IncludeDir
         }
     }
-    
+
     $I18nDir = Join-Path $ICUDir "i18n"
     if (Test-Path $I18nDir) {
         Write-Host "Copying headers from i18n directory..."
@@ -59,7 +84,7 @@ if (Test-Path $IncludeDir) {
             Copy-Item -Path $_.FullName -Destination $IncludeDir
         }
     }
-    
+
     $IoDir = Join-Path $ICUDir "io"
     if (Test-Path $IoDir) {
         Write-Host "Copying headers from io directory..."
@@ -67,7 +92,7 @@ if (Test-Path $IncludeDir) {
             Copy-Item -Path $_.FullName -Destination $IncludeDir
         }
     }
-    
+
     Write-Host "Headers copied to include/unicode/"
     Get-ChildItem -Path $IncludeDir -File | Select-Object -First 10 | Format-Table -AutoSize
 }
@@ -86,12 +111,12 @@ $ICUDataDir = Join-Path $TestDir "icu_data"
 
 if (Test-Path $DataFile) {
     Write-Host "Found ICU data file: $DataFile"
-    
+
     # Create a directory for the data file and set up environment variable
     New-Item -ItemType Directory -Path $ICUDataDir -Force | Out-Null
     Copy-Item -Path $DataFile -Destination $ICUDataDir
     $env:ICU_DATA = $ICUDataDir
-    
+
     # Verify the data file is accessible
     Write-Host "Verifying ICU data file access:"
     Get-ChildItem -Path $ICUDataDir | Format-Table -AutoSize

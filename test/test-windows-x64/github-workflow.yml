@@ -1,0 +1,55 @@
+name: Windows x64 Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    
+    env:
+      ICU_VERSION: 77.1
+      MSVC_VERSION: 14.3
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Visual Studio environment
+      uses: microsoft/setup-msbuild@v1.1
+    
+    - name: Install CMake
+      uses: lukka/get-cmake@latest
+    
+    - name: Cache ICU package
+      id: cache-icu
+      uses: actions/cache@v3
+      with:
+        path: dist/icu4c-${{ env.ICU_VERSION }}_windows-x86-64_msvc-${{ env.MSVC_VERSION }}.zip
+        key: ${{ runner.os }}-icu-${{ env.ICU_VERSION }}-msvc-${{ env.MSVC_VERSION }}
+    
+    - name: Build ICU package (if needed)
+      if: steps.cache-icu.outputs.cache-hit != 'true'
+      run: |
+        $env:WINDOWS_64 = "true"
+        .\build.bat
+      shell: pwsh
+    
+    - name: Run Windows x64 tests
+      run: |
+        cd test\test-windows-x64
+        .\run.bat
+      shell: cmd
+    
+    - name: Upload test logs
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: windows-x64-test-logs
+        path: |
+          ${{ runner.temp }}\icu4c-test\build\*.log
+          ${{ runner.temp }}\icu4c-test\build\CMakeFiles\CMakeOutput.log
+          ${{ runner.temp }}\icu4c-test\build\CMakeFiles\CMakeError.log

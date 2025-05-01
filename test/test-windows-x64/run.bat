@@ -10,35 +10,51 @@ set "SCRIPT_DIR=%~dp0"
 set "ROOT_DIR=%SCRIPT_DIR%..\..\"
 cd /d "%ROOT_DIR%"
 
+:: Set default versions
+set "ICU_VERSION=77.1"
+set "MSVC_VERSION=14.3"
+
 :: Source versions if not already set
-if "%ICU_VERSION%"=="" (
-    if exist versions.env (
-        for /f "tokens=1,* delims==" %%a in (versions.env) do (
+if exist versions.env (
+    echo Reading versions from versions.env
+    for /f "tokens=1,* delims==" %%a in (versions.env) do (
+        set line=%%a
+        if "!line:~0,1!" NEQ "#" (
             if "%%a"=="ICU_VERSION" set "ICU_VERSION=%%b"
-            if "%%a"=="MSVC_VERSION" set "MSVC_VERSION=%%b"
+            if "%%a"=="CLANG_VERSION" set "MSVC_VERSION=%%b"
         )
-        echo Using versions from versions.env: ICU=%ICU_VERSION%, MSVC=%MSVC_VERSION%
-    ) else (
-        echo versions.env not found, using defaults
-        set "ICU_VERSION=77.1"
-        set "MSVC_VERSION=14.3"
     )
 )
 
+echo Using versions: ICU=%ICU_VERSION%, MSVC=%MSVC_VERSION%
+
 :: Check if the ICU package exists
 set "ICU_PACKAGE=%ROOT_DIR%dist\icu4c-%ICU_VERSION%_windows-x86-%BITNESS%_msvc-%MSVC_VERSION%.zip"
+
+:: Also check for alternative package name format
+if not exist "%ICU_PACKAGE%" (
+    set "ALT_ICU_PACKAGE=%ROOT_DIR%dist\icu4c-%ICU_VERSION%_windows-x86-%BITNESS%_*.zip"
+    for %%F in (%ALT_ICU_PACKAGE%) do (
+        set "ICU_PACKAGE=%%F"
+        echo Found alternative ICU package: %%F
+    )
+)
+
 if not exist "%ICU_PACKAGE%" (
     echo ICU package not found: %ICU_PACKAGE%
-    echo Building ICU package first...
-    
-    :: Check if we should do a quick build
-    cd /d "%ROOT_DIR%"
-    set WINDOWS_%BITNESS%=true
-    call build.bat
-    
-    :: Check again if the package exists
-    if not exist "%ICU_PACKAGE%" (
-        echo Failed to build ICU package: %ICU_PACKAGE%
+    echo Checking for downloaded artifacts...
+
+    :: Look for any Windows 64-bit ICU package in the dist directory
+    set "FOUND=false"
+    for %%F in (%ROOT_DIR%dist\*windows*64*.zip) do (
+        set "ICU_PACKAGE=%%F"
+        set "FOUND=true"
+        echo Found ICU package: %%F
+    )
+
+    if "%FOUND%"=="false" (
+        echo No ICU package found in dist directory.
+        echo Please ensure the Windows build job completed successfully.
         exit /b 1
     )
 )
